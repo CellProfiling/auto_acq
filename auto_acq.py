@@ -48,3 +48,12 @@ if (histo[-1] >=13) & (channel_number+1 <= job_number):
 # adjust gain, laser, off-set, color, active detectors, if seq or not etc.
 # In xml file, assign correct jobs for well, active fields etc. Use XSLT style-
 # sheets to do the XML modification!
+
+# Saving gain values for each well and channel
+
+gain_dicts = [
+    { "well": "1", "green": 100 , "blue": 101 , "yellow": 102 , "red": 103},
+    { "well": "2", "green": 200 , "blue": 201 , "yellow": 202 , "red": 203},
+    { "well": "3", "green": 300 , "blue": 301 , "yellow": 302 , "red": 303},
+    { "well": "4", "green": 400 , "blue": 401 , "yellow": 402 , "red": 403}
+]
