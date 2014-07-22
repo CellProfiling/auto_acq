@@ -6,6 +6,7 @@
 # from linux command line.
 # Repeat for each well.
 
+# Gain calculation script
 setwd(commandArgs(TRUE)[1])
 filebase <- commandArgs(TRUE)[2]
 # Initial gain values used
@@ -52,7 +53,9 @@ for (i in 1:32) {
 	# Plot values
 	test <- 0
 	png(filename=paste(filebase, "C", sprintf("%02d", i-1), ".ome.png", sep = ""))
-	plot(count1, bin1, log="xy")
+	if (length(bin1) > 0) {
+		plot(count1, bin1, log="xy")
+	}
 	# Fit curve
 	sink("/dev/null")	# Suppress output
 	curv <- tryCatch(nls(bin2 ~ A*count2^B, start=list(A = 1000, B=-1), trace=T), warning=function(e) NULL, error=function(e) NULL)
@@ -68,8 +71,6 @@ for (i in 1:32) {
 	}
 	dev.off()
 }
-#bins[[11]]
-#bins
 
 # Create curve and function for each channel (multiple wells)
 for (i in 1:(length(channels))) {
@@ -97,16 +98,14 @@ for (i in 1:(length(channels))) {
 	}
 	bins_c <- bins_c[point.start:point.end]
 	gains_c <- gains_c[point.start:point.end]
-	gain[[i]] <- initialgains[channels[i]]
+	gain[[i]] <- round(initialgains[channels[i]])
 	if (length(bins_c) >= 3) {
 		# Fit curve
-		try({
-			sink("/dev/null")	# Suppress output
-			curv2 <- nls(gains_c ~ C*bins_c^D, start=list(C = 1, D=1), trace=T)
-			sink()
-		})
+		sink("/dev/null")	# Suppress output
+		curv2 <- tryCatch(nls(gains_c ~ C*bins_c^D, start=list(C = 1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
+		sink()
 		# Find function
-		if (exists("curv2")) {
+		if (!is.null(curv2)) {
 			func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
 			lines(bins_c, fitted.values(curv2), lwd=2, col="green")
 			abline(v=binmax)
