@@ -3,47 +3,44 @@ setBatchMode(true)
 // From OpenSeriesUsingFilter.txt
 //Recursive file listing. Saves the paths in a text file.
 count = 1;
-fileString = "";
-function listFiles(dir, rootDir) {
+//fileString = "";
+function listFiles(dir, rootDir, search, array) {
 	fileList = getFileList(dir);
-	if (File.exists(rootDir+"files.txt")!= 1) {
-		File.saveString("", rootDir+"files.txt");
-	}
-	fileString = File.openAsString(rootDir + "files.txt");
+	//if (File.exists(rootDir+"files.txt")!= 1) {
+	//	File.saveString("", rootDir+"files.txt");
+	//}
+	//fileString = File.openAsString(rootDir + "files.txt");
 	for (i=0; i<fileList.length; i++) {
 		if (endsWith(fileList[i], "/")) {
-			listFiles(""+dir+fileList[i], rootDir);
+			listFiles(""+dir+fileList[i], rootDir, search);
 		} else {
-			if (filter(i, fileList[i])) {
+			if (filter(i, fileList[i], search)) {
 				//Testing
 				print((count++) + ": " + dir + fileList[i]);
-				fileString = fileString + dir + fileList[i] + "\n";
-				File.saveString(fileString, rootDir+"files.txt");
+				//fileString = fileString + dir + fileList[i] + "\n";
+				//File.saveString(fileString, rootDir+"files.txt");
+				array = addToArray(""+ dir + fileList[i], array, array.length)
 			}
 		}
 	}
+	return array;
 }
 
 // From OpenSeriesUsingFilter.txt
 // Filter files in chosen directory and sub-directories to use for analysis,
 // by conditions set below.
-function filter(i, name) {
+function filter(i, name, search) {
 	// is directory?
 	if (endsWith(name, File.separator)) return false;
 
 	// is tiff?
-	if (!endsWith(name, ".tif")) return false;
+	//if (!endsWith(name, ".tif")) return false;
 
-	// ignore text files
-	// if (endsWith(name, ".txt")) return false;
-
-	// does name contain both "Series002" and "ch01"
-	// if (indexOf(name, "Series002") == -1) return false;
-	// if (indexOf(name, "ch01") == -1) return false;
-
-	// does name contain "--C00"?
-	//if (indexOf(name, "--C00") == -1) return false;
-	//if (indexOf(name, "--C00") == -1) return false;
+	// does name contain search?
+	//if (indexOf(name, search) == -1) return false;
+	
+	//does name contain regex search?
+	if (matches(name, search)) return false;
 
 	// open only first 10 images
 	// if (i >= 10) return false;
@@ -76,10 +73,11 @@ pathMaxProjs = topDir+"maxprojs/";
 File.makeDirectory(pathMaxProjs);
 
 // Open all images in for loop.
-File.saveString(fileString, topDir+"files.txt");
-listFiles(dirChosen, topDir);
-filesInString = File.openAsString(topDir + "files.txt");
-fileArray = split(filesInString,"\n");
+//File.saveString(fileString, topDir+"files.txt");
+fileArray = newArray();
+fileArray = listFiles(dirChosen, topDir, "\.tif$", fileArray);
+//filesInString = File.openAsString(topDir + "files.txt");
+//fileArray = split(filesInString,"\n");
 
 while (fileArray.length != 0) {
 
@@ -102,6 +100,9 @@ while (fileArray.length != 0) {
 	wellX = substring(imageName, wellXIndex+3, wellXIndex+5);
 	wellYIndex = indexOf(imageName, "--V");
 	wellY = substring(imageName, wellYIndex+3, wellYIndex+5);
+
+	file2Array = newArray();
+	file2Array = listFiles(dirChosen, topDir, "", file2Array);
 
 	close();
 
