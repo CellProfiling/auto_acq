@@ -65,22 +65,22 @@ for (j = 0; j < fileArray.length; j++) {
 	// Open image.
 	open(fileArray[j]);
 
-	gainStart = 600;
-	channelStart = 0;
-	gainStep = 30;
+	//gainStart = 600;
+	//channelStart = 0;
+	//gainStep = 30;
 	channelIndex = indexOf(fileArray[j], "C");
 	channelString = substring(fileArray[j], channelIndex+1, channelIndex+3);
-	channel = parseInt(channelString);
+	//channel = parseInt(channelString);
 	wellXIndex = indexOf(fileArray[j], "U");
 	wellX = substring(fileArray[j], wellXIndex+1, wellXIndex+3);
-	print(wellX);
+	//print(wellX);
 	wellYIndex = indexOf(fileArray[j], "V");
 	wellY = substring(fileArray[j], wellYIndex+1, wellYIndex+3);
-	gain=gainStart+(channel-channelStart)*gainStep;
+	//gain=gainStart+(channel-channelStart)*gainStep;
 	
 	nBins = 256;
 	getHistogram(values, counts, nBins);
-	d=File.open(topDir+"U"+wellX+"--V"+wellY+"--C"+channelString+"_"+gain+".csv"); 
+	d=File.open(topDir+"U"+wellX+"--V"+wellY+"--C"+channelString+".ome.csv"); 
 	print(d, "Bin,Count"); 
 	for (k=0; k<nBins; k++) { 
 		print(d, k+","+counts[k]); 
