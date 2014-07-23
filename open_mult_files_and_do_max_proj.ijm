@@ -61,7 +61,6 @@ pathMaxProjs = topDir+"maxprojs/";
 File.makeDirectory(pathMaxProjs);
 
 fileArray = newArray();
-regexSearch = ".+\.tif$";
 fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
 
 while (fileArray.length != 0) {
