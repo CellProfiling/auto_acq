@@ -1,25 +1,19 @@
 setBatchMode(true)
 
 // From OpenSeriesUsingFilter.txt
-//Recursive file listing. Saves the paths in a text file.
+//Recursive file listing.
 count = 1;
-//fileString = "";
 function listFiles(dir, rootDir, search, array) {
 	fileList = getFileList(dir);
-	//if (File.exists(rootDir+"files.txt")!= 1) {
-	//	File.saveString("", rootDir+"files.txt");
-	//}
-	//fileString = File.openAsString(rootDir + "files.txt");
 	for (i=0; i<fileList.length; i++) {
 		if (endsWith(fileList[i], "/")) {
-			listFiles(""+dir+fileList[i], rootDir, search);
+			array = listFiles(""+dir+fileList[i], rootDir, search, array);
 		} else {
 			if (filter(i, fileList[i], search)) {
-				//Testing
-				print((count++) + ": " + dir + fileList[i]);
-				//fileString = fileString + dir + fileList[i] + "\n";
-				//File.saveString(fileString, rootDir+"files.txt");
-				array = addToArray(""+ dir + fileList[i], array, array.length)
+				pathToString = dir + fileList[i];
+				array = addToArray(pathToString, array, array.length);
+				//testing
+				print((count++) + ": " + array[array.length-1]);
 			}
 		}
 	}
@@ -32,15 +26,9 @@ function listFiles(dir, rootDir, search, array) {
 function filter(i, name, search) {
 	// is directory?
 	if (endsWith(name, File.separator)) return false;
-
-	// is tiff?
-	//if (!endsWith(name, ".tif")) return false;
-
-	// does name contain search?
-	//if (indexOf(name, search) == -1) return false;
 	
-	//does name contain regex search?
-	if (matches(name, search)) return false;
+	//does name match regex search?
+	if (matches(name, search) != true) return false;
 
 	// open only first 10 images
 	// if (i >= 10) return false;
@@ -72,39 +60,18 @@ topDir = dirChosen;
 pathMaxProjs = topDir+"maxprojs/";
 File.makeDirectory(pathMaxProjs);
 
-// Open all images in for loop.
-//File.saveString(fileString, topDir+"files.txt");
 fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, "\.tif$", fileArray);
-//filesInString = File.openAsString(topDir + "files.txt");
-//fileArray = split(filesInString,"\n");
+regexSearch = ".+\.tif$";
+fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
 
 while (fileArray.length != 0) {
-
-//for (j = 0; j < fileArray.length; j++) {
-	imagePath = fileArray[0];
-
-	// Open image.
-	open(imagePath);
 	
-	// Get image name.
-	imageName = getTitle();
-
-	// Get image directory
-	imageDir = getDirectory("image");
-	
-	channelIndex = indexOf(imageName, "--C");
-	channelString = substring(imageName, channelIndex+3, channelIndex+5);
-	//channel = parseInt(substring(imageName, channelIndex+3, channelIndex+5));
-	wellXIndex = indexOf(imageName, "--U");
-	wellX = substring(imageName, wellXIndex+3, wellXIndex+5);
-	wellYIndex = indexOf(imageName, "--V");
-	wellY = substring(imageName, wellYIndex+3, wellYIndex+5);
-
-	file2Array = newArray();
-	file2Array = listFiles(dirChosen, topDir, "", file2Array);
-
-	close();
+	channelIndex = indexOf(fileArray[0], "--C");
+	channelString = substring(fileArray[0], channelIndex+3, channelIndex+5);
+	wellXIndex = indexOf(fileArray[0], "--U");
+	wellX = substring(fileArray[0], wellXIndex+3, wellXIndex+5);
+	wellYIndex = indexOf(fileArray[0], "--V");
+	wellY = substring(fileArray[0], wellYIndex+3, wellYIndex+5);
 
 	imagesToStack = newArray();
 	newFileArray = newArray();
@@ -113,20 +80,11 @@ while (fileArray.length != 0) {
 	print(newFileArray.length);
 
 	for (i = 0; i < fileArray.length; i++) {
-		image2Path = fileArray[i];
-		// Open image.
-		open(image2Path);
-		// Get image name.
-		image2Name = getTitle();
-		image2ChannelString = substring(image2Name, channelIndex+3, channelIndex+5);
-		image2WellX = substring(image2Name, wellXIndex+3, wellXIndex+5);
-		image2WellY = substring(image2Name, wellYIndex+3, wellYIndex+5);
-		if (wellX == image2WellX && wellY == image2WellY && channelString == image2ChannelString) {
-			imagesToStack = addToArray(image2Path, imagesToStack, (imagesToStack.length));
+		if (matches(fileArray[i], ".+--U"+wellX+".+--V"+wellY+".+--C"+channelString+".+\.tif$")) {
+			imagesToStack = addToArray(fileArray[i], imagesToStack, (imagesToStack.length));
 		} else {
-			newFileArray = addToArray(image2Path, newFileArray, (newFileArray.length));
+			newFileArray = addToArray(fileArray[i], newFileArray, (newFileArray.length));
 		}
-		close();
 	}
 	//testing
 	print("Filling newFileArray");
@@ -135,14 +93,14 @@ while (fileArray.length != 0) {
 	fileArray = newFileArray;
 
 	for (i = 0; i < imagesToStack.length; i++) {
-		imagePath = imagesToStack[i];
-		// Open image.
-		open(imagePath);
+		open(imagesToStack[i]);
+		if ((512 != getWidth()) || 512 != getHeight()) {
+			close();
+		}
 	}
 	run("Images to Stack", "name=Stack title=[] use");
 	run("Z Project...", "projection=[Max Intensity]");
 	saveAs("Tiff", pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".tif");
-	close();
-	close();
+	close("*");
 }
 print("Analysis finished!");
