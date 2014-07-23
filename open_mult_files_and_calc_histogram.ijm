@@ -1,83 +1,86 @@
 setBatchMode(true)
 
 // From OpenSeriesUsingFilter.txt
-//Recursive file listing. Saves the paths in a text file.
+//Recursive file listing.
 count = 1;
-fileString = "";
-function listFiles(dir, rootDir) {
+function listFiles(dir, rootDir, search, array) {
 	fileList = getFileList(dir);
-	if (File.exists(rootDir+"files.txt")!= 1) {
-		File.saveString("", rootDir+"files.txt");
-	}
-	fileString = File.openAsString(rootDir + "files.txt");
 	for (i=0; i<fileList.length; i++) {
 		if (endsWith(fileList[i], "/")) {
-			listFiles(""+dir+fileList[i], rootDir);
+			array = listFiles(""+dir+fileList[i], rootDir, search, array);
 		} else {
-			if (filter(i, fileList[i])) {
-				//Testing
-				print((count++) + ": " + dir + fileList[i]);
-				fileString = fileString + dir + fileList[i] + "\n";
-				File.saveString(fileString, rootDir+"files.txt");
+			if (filter(i, fileList[i], search)) {
+				pathToString = dir + fileList[i];
+				array = addToArray(pathToString, array, array.length);
+				//testing
+				print((count++) + ": " + array[array.length-1]);
 			}
 		}
 	}
+	return array;
 }
 
 // From OpenSeriesUsingFilter.txt
 // Filter files in chosen directory and sub-directories to use for analysis,
 // by conditions set below.
-function filter(i, name) {
+function filter(i, name, search) {
 	// is directory?
 	if (endsWith(name, File.separator)) return false;
-
-	// is tiff?
-	if (!endsWith(name, ".tif")) return false;
-
-	// ignore text files
-	// if (endsWith(name, ".txt")) return false;
-
-	// does name contain both "Series002" and "ch01"
-	// if (indexOf(name, "Series002") == -1) return false;
-	// if (indexOf(name, "ch01") == -1) return false;
-
-	// does name contain "--C00"?
-	//if (indexOf(name, "--C00") == -1) return false;
-	//if (indexOf(name, "--C00") == -1) return false;
+	
+	//does name match regex search?
+	if (matches(name, search) != true) return false;
 
 	// open only first 10 images
 	// if (i >= 10) return false;
 
 	return true;
 }
+
+// From Array_Tools.ijm.
+// Adds the value to the array at the specified position,
+// expanding if necessary. Returns the modified array.
+function addToArray(value, array, position) {
+	if (position<lengthOf(array)) {
+		array[position]=value;
+    	} else {
+    		temparray=newArray(position+1);
+        	for (i=0; i<lengthOf(array); i++) {
+        		temparray[i]=array[i];
+        	}
+        	temparray[position]=value;
+        	array=temparray;
+    	}
+    	return array;
+}
+
 // Set path to image directory.
 dirChosen = getDirectory("Choose a Directory ");
 topDir = dirChosen;
 
 // Open all images in for loop.
-File.saveString(fileString, topDir+"files.txt");
-listFiles(dirChosen, topDir);
-filesInString = File.openAsString(topDir + "files.txt");
-fileArray = split(filesInString,"\n");
+fileArray = newArray();
+fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
 for (j = 0; j < fileArray.length; j++) {
-	imagePath = fileArray[j];
 
 	// Open image.
-	open(imagePath);
-	
-	// Set image name.
-	imageName = getTitle();
+	open(fileArray[j]);
 
 	gainStart = 600;
-	channelStart = 25;
+	channelStart = 0;
 	gainStep = 30;
-	channelIndex = indexOf(imageName, "--C");
-	channel = parseInt(substring(imageName, channelIndex+3, channelIndex+5));
+	channelIndex = indexOf(fileArray[j], "C");
+	channelString = substring(fileArray[j], channelIndex+1, channelIndex+3);
+	channel = parseInt(channelString);
+	wellXIndex = indexOf(fileArray[j], "U");
+	wellX = substring(fileArray[j], wellXIndex+1, wellXIndex+3);
+	print(wellX);
+	wellYIndex = indexOf(fileArray[j], "V");
+	wellY = substring(fileArray[j], wellYIndex+1, wellYIndex+3);
 	gain=gainStart+(channel-channelStart)*gainStep;
 	
 	nBins = 256;
 	getHistogram(values, counts, nBins);
-	d=File.open(topDir+imageName+"_"+gain+".csv"); 
+	d=File.open(topDir+"U"+wellX+"--V"+wellY+"--C"+channelString+"_"+gain+".csv"); 
 	print(d, "Bin,Count"); 
 	for (k=0; k<nBins; k++) { 
 		print(d, k+","+counts[k]); 
