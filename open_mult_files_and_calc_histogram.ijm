@@ -75,7 +75,7 @@ for (j = 0; j < fileArray.length; j++) {
 	nBins = 256;
 	getHistogram(values, counts, nBins);
 	d=File.open(topDir+"U"+wellX+"--V"+wellY+"--C"+channelString+".ome.csv"); 
-	print(d, "Bin,Count"); 
+	print(d, "bin,count"); 
 	for (k=0; k<nBins; k++) { 
 		print(d, k+","+counts[k]); 
 	}
