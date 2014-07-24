@@ -12,20 +12,31 @@
 # second objective path/to/working/dir/
 # first objective path/to/histogram-csv-filebase
 # second objective path/to/histogram-csv-filebase
+# initialgains for first objective
+# initialgains for second objective
 
 # Gain calculation script
-firstObjWorkPath <- commandArgs(TRUE)[1]
-firstObjHistoBase <- commandArgs(TRUE)[2]
-initialgainsCSV <- commandArgs(TRUE)[3]
-inputGain <- commandArgs(TRUE)[4]
-secObjWorkPath <- commandArgs(TRUE)[5]
-secObjHistoBase <- commandArgs(TRUE)[6]
+#firstObjWorkPath <- commandArgs(TRUE)[1]
+#firstObjHistoBase <- commandArgs(TRUE)[2]
+#firstInitialgainsCSV <- commandArgs(TRUE)[3]
+#inputGain <- commandArgs(TRUE)[4]
+#secObjWorkPath <- commandArgs(TRUE)[5]
+#secObjHistoBase <- commandArgs(TRUE)[6]
+#secInitialgainsCSV <- commandArgs(TRUE)[7]
+
+firstObjWorkPath <- "/home/martin/Skrivbord/test/10x/maxprojs/"
+firstObjHistoBase <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
+firstInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain.csv"
+inputGain <- c(800,900,700,600)
+secObjWorkPath <- "/home/martin/Skrivbord/test/63x/maxprojs/"
+secObjHistoBase <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
+secInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain2.csv"
 
 # Make function and call with the different objective arguments
 # and with gain values from previous screening
 # Return regression curv function as output
 # Arguments to specify what is x and what is y in plot, regression etc
-func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, x, y) {
+func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
   
   gain <- list()
   bins <- list()
@@ -92,11 +103,15 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, x, y) {
     dev.off()
   }
   
+  output <- vector()
+  
   # Create curve and function for each channel (multiple wells)
   for (i in 1:(length(channels))) {
     
     bins_c <- bins[[i]]
     gains_c <- gains[[i]]
+    
+
     
     # Remove values not making a upward trend (Martin Hjelmare)
     point.connected <- 0
@@ -104,8 +119,8 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, x, y) {
     point.end <- 1
     for (k in 1:(length(bins_c)-1)) {
       for (l in (k+1):length(bins_c)) {
-        if(bins_c[l] >= bins_c[l-1]) {
-          if((l-k+1) > point.connected) {
+        if (bins_c[l] >= bins_c[l-1]) {
+          if ((l-k+1) > point.connected) {
             point.connected <- l-k+1
             point.start <- k
             point.end <- l
@@ -119,6 +134,17 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, x, y) {
     bins_c <- bins_c[point.start:point.end]
     gains_c <- gains_c[point.start:point.end]
     gain[[i]] <- round(initialgains[channels[i]])
+    
+    # HAVE TO ADD CHANGABLE STARTING VALUES FOR NLS FUNCTION IN THE ON/OFF SWITCH TO MAKE IT WORK
+    # Switch to change axis for plots and regressions
+    if (onOff == "gain.bin") {
+      x <- gains_c
+      y <- bins_c
+    }
+    if (onOff == "bin.gain") {
+      x <- bins_c
+      y <- gains_c
+    }
     
     png(filename=paste(channel_name[channels[i]], "_gain.png", sep = ""))
     #plot(gains_c, bins_c)
@@ -143,15 +169,17 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, x, y) {
     # Enter gain values from previous gain screening with first
     # objective into function func2
     #gain[[i]] <- round(min(func2(binmax), gain[[i]]))
+    #testing
+    print(paste("i:",i))
     output[i] <- round(func2(input[i]))
   }
-  return output
+  return(output)
 }
 
 # Use func3 to get output from first objective which will be input for second objective in func3 next round
 
-# NEED TO SOLVE gains_c and bins_c not existing outside func3, but need to use these to call func3
-inputSecObj <- func3(initialgainsCSV, inputGain, firstObjWorkPath, firstObjHistoBase, gains_c, bins_c)
-outputSecObj <- func3(initialgainsCSV, inputSecObj, secObjWorkPath, secObjHistoBase, bins_c, gains_c)
+inputSecObj <- func3(firstInitialgainsCSV, inputGain, firstObjWorkPath, firstObjHistoBase, "gain.bin")
+outputSecObj <- func3(secInitialgainsCSV, inputSecObj, secObjWorkPath, secObjHistoBase, "bin.gain")
 
 #cat(paste(gain[[1]], gain[[2]], gain[[3]], gain[[4]]))
+cat(paste(outputSecObj[1], outputSecObj[2], outputSecObj[3], outputSecObj[4]))
