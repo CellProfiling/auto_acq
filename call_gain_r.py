@@ -36,23 +36,16 @@ initialgains_file = "/home/martin/Dev/auto_acq/gain.csv"
 
 gain_dicts = []
 
-# Fix that wells is not as many as filesbases
-
-# for all wells do run R script
+# for all wells run R script
 for i in range(len(filebases)):
     print(filebases[i])
     print(wells[i])
     # Run with "Rscript path/to/script/gain.r path/to/working/dir/
     # path/to/histogram-csv-filebase path/to/initialgains/csv-file"
     # from linux command line.
-    r_output = subprocess.check_output(["Rscript", r_script, working_dir, filebases[i],
-            initialgains_file])
+    r_output = subprocess.check_output(["Rscript", r_script, working_dir,
+        filebases[i], initialgains_file])
 
     gain_dicts.append({ "well": wells[i], "green": r_output.split()[0] ,
         "blue": r_output.split()[1] , "yellow": r_output.split()[2] ,
         "red": r_output.split()[3]})
-
-#gain_dicts = [
-#    { "well": wells[i], "green": r_output.split()[0] , "blue": r_output.split()[1] ,
-#    "yellow": r_output.split()[2] , "red": r_output.split()[3]}
-#]
