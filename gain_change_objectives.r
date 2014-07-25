@@ -16,21 +16,21 @@
 # initialgains for second objective
 
 # Gain calculation script
-#firstObjWorkPath <- commandArgs(TRUE)[1]
-#firstObjHistoBase <- commandArgs(TRUE)[2]
-#firstInitialgainsCSV <- commandArgs(TRUE)[3]
-#inputGain <- commandArgs(TRUE)[4]
-#secObjWorkPath <- commandArgs(TRUE)[5]
-#secObjHistoBase <- commandArgs(TRUE)[6]
-#secInitialgainsCSV <- commandArgs(TRUE)[7]
+firstObjWorkPath <- commandArgs(TRUE)[1]
+firstObjHistoBase <- commandArgs(TRUE)[2]
+firstInitialgainsCSV <- commandArgs(TRUE)[3]
+inputGain <- commandArgs(TRUE)[4]
+secObjWorkPath <- commandArgs(TRUE)[5]
+secObjHistoBase <- commandArgs(TRUE)[6]
+secInitialgainsCSV <- commandArgs(TRUE)[7]
 
-firstObjWorkPath <- "/home/martin/Skrivbord/test/10x/maxprojs/"
-firstObjHistoBase <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
-firstInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain.csv"
-inputGain <- c(800,900,700,600)
-secObjWorkPath <- "/home/martin/Skrivbord/test/63x/maxprojs/"
-secObjHistoBase <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
-secInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain2.csv"
+#firstObjWorkPath <- "/home/martin/Skrivbord/test/10x/maxprojs/"
+#firstObjHistoBase <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
+#firstInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain.csv"
+#inputGain <- c(800,900,700,600)
+#secObjWorkPath <- "/home/martin/Skrivbord/test/63x/maxprojs/"
+#secObjHistoBase <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
+#secInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain2.csv"
 
 # Make function and call with the different objective arguments
 # and with gain values from previous screening
@@ -111,7 +111,7 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
     bins_c <- bins[[i]]
     gains_c <- gains[[i]]
     
-
+    
     
     # Remove values not making a upward trend (Martin Hjelmare)
     point.connected <- 0
@@ -135,51 +135,57 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
     gains_c <- gains_c[point.start:point.end]
     gain[[i]] <- round(initialgains[channels[i]])
     
-    # HAVE TO ADD CHANGABLE STARTING VALUES FOR NLS FUNCTION IN THE ON/OFF SWITCH TO MAKE IT WORK
+    # HAVE TO ADD CHANGABLE NLS FUNCTION AND STARTING VALUES AFTER THE ON/OFF SWITCH TO MAKE IT WORK
     # Switch to change axis for plots and regressions
     if (onOff == "gain.bin") {
       x <- gains_c
       y <- bins_c
+      output[i] <- round(binmax)
     }
     if (onOff == "bin.gain") {
       x <- bins_c
       y <- gains_c
+      output[i] <- round(gain[[i]])
     }
     
     png(filename=paste(channel_name[channels[i]], "_gain.png", sep = ""))
-    #plot(gains_c, bins_c)
     plot(x, y)
     
     #if (length(bins_c) >= 3) {
     if (length(y) >= 3) {
       # Fit curve
       sink("/dev/null")	# Suppress output
-      #curv2 <- tryCatch(nls(bins_c ~ C*gains_c^D, start=list(C = 1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
-      curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C = 1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
+      if (onOff == "gain.bin") {
+        curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C=-1, D=5), trace=T), warning=function(e) NULL, error=function(e) NULL)
+      }
+      if (onOff == "bin.gain") {
+        curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C=1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
+      }
       sink()
       # Find function
       if (!is.null(curv2)) {
         func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
-        #lines(gains_c, fitted.values(curv2), lwd=2, col="green")
         lines(x, fitted.values(curv2), lwd=2, col="green")
         abline(v=binmax)
+        #testing
+        print(paste("i:",i))
+        # Enter gain values from previous gain screening with first
+        # objective into function func2
+        output[i] <- round(func2(input[i]))
       }
     }
     dev.off()
-    # Enter gain values from previous gain screening with first
-    # objective into function func2
-    #gain[[i]] <- round(min(func2(binmax), gain[[i]]))
-    #testing
-    print(paste("i:",i))
-    output[i] <- round(func2(input[i]))
+    
   }
   return(output)
 }
 
 # Use func3 to get output from first objective which will be input for second objective in func3 next round
-
+#testing
+print("firstObj")
 inputSecObj <- func3(firstInitialgainsCSV, inputGain, firstObjWorkPath, firstObjHistoBase, "gain.bin")
+#testing
+print("secObj")
 outputSecObj <- func3(secInitialgainsCSV, inputSecObj, secObjWorkPath, secObjHistoBase, "bin.gain")
 
-#cat(paste(gain[[1]], gain[[2]], gain[[3]], gain[[4]]))
 cat(paste(outputSecObj[1], outputSecObj[2], outputSecObj[3], outputSecObj[4]))
