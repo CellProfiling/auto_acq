@@ -88,7 +88,8 @@ for i in range(len(first_filebases)):
 
 def write_csv(path, dict_list):
     with open(path, 'wb') as f:
-        w = csv.DictWriter(f, dict_list.keys())
+        keys = ["well", "green", "blue", "yellow", "red"]
+        w = csv.DictWriter(f, keys)
         w.writeheader()
         w.writerows(dict_list)
 

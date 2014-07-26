@@ -19,7 +19,7 @@
 firstObjWorkPath <- commandArgs(TRUE)[1]
 firstObjHistoBase <- commandArgs(TRUE)[2]
 firstInitialgainsCSV <- commandArgs(TRUE)[3]
-inputGain <- commandArgs(TRUE)[4]
+#inputGain <- commandArgs(TRUE)[4]
 secObjWorkPath <- commandArgs(TRUE)[5]
 secObjHistoBase <- commandArgs(TRUE)[6]
 secInitialgainsCSV <- commandArgs(TRUE)[7]
@@ -27,7 +27,7 @@ secInitialgainsCSV <- commandArgs(TRUE)[7]
 #firstObjWorkPath <- "/home/martin/Skrivbord/test/10x/maxprojs/"
 #firstObjHistoBase <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
 #firstInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain.csv"
-#inputGain <- c(800,900,700,600)
+inputGain <- c(843,751,910,759)
 #secObjWorkPath <- "/home/martin/Skrivbord/test/63x/maxprojs/"
 #secObjHistoBase <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
 #secInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain2.csv"
@@ -166,9 +166,8 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
       if (!is.null(curv2)) {
         func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
         lines(x, fitted.values(curv2), lwd=2, col="green")
-        abline(v=binmax)
-        #testing
-        print(paste("i:",i))
+        abline(v=input[i])
+
         # Enter gain values from previous gain screening with first
         # objective into function func2
         output[i] <- round(func2(input[i]))
@@ -181,11 +180,7 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
 }
 
 # Use func3 to get output from first objective which will be input for second objective in func3 next round
-#testing
-print("firstObj")
 inputSecObj <- func3(firstInitialgainsCSV, inputGain, firstObjWorkPath, firstObjHistoBase, "gain.bin")
-#testing
-print("secObj")
 outputSecObj <- func3(secInitialgainsCSV, inputSecObj, secObjWorkPath, secObjHistoBase, "bin.gain")
 
 cat(paste(outputSecObj[1], outputSecObj[2], outputSecObj[3], outputSecObj[4]))
