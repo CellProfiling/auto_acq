@@ -52,8 +52,11 @@ def strip_fun(files, filebases, _wells):
 strip_fun(first_files, first_filebases, wells)
 strip_fun(first_std_files, first_std_filebases, garbage_wells)
 strip_fun(sec_std_files, sec_std_filebases, garbage_wells)
+
+# MAKES THE BASENAMES AND WELLS SHIFT POSITIONS, HAVE TO FIX THIS!
 first_filebases = list(set(first_filebases))
 wells = list(set(wells))
+
 first_std_filebases = list(set(first_std_filebases))
 sec_std_filebases = list(set(sec_std_filebases))
 
