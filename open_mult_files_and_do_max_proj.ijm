@@ -1,7 +1,7 @@
 setBatchMode(true)
 
 // From OpenSeriesUsingFilter.txt
-//Recursive file listing.
+// Recursive file listing.
 count = 1;
 function listFiles(dir, rootDir, search, array) {
 	fileList = getFileList(dir);
@@ -27,7 +27,7 @@ function filter(i, name, search) {
 	// is directory?
 	if (endsWith(name, File.separator)) return false;
 	
-	//does name match regex search?
+	// does name match regex search?
 	if (matches(name, search) != true) return false;
 
 	// open only first 10 images
@@ -79,10 +79,13 @@ while (fileArray.length != 0) {
 	print(newFileArray.length);
 
 	for (i = 0; i < fileArray.length; i++) {
-		if (matches(fileArray[i], ".+--U"+wellX+".+--V"+wellY+".+--C"+channelString+".+\.tif$")) {
-			imagesToStack = addToArray(fileArray[i], imagesToStack, (imagesToStack.length));
+		if (matches(fileArray[i], ".+--U"+wellX+".+--V"+wellY+".+--C"+
+				channelString+".+\.tif$")) {
+			imagesToStack = addToArray(fileArray[i], imagesToStack,
+			                (imagesToStack.length));
 		} else {
-			newFileArray = addToArray(fileArray[i], newFileArray, (newFileArray.length));
+			newFileArray = addToArray(fileArray[i], newFileArray,
+			                (newFileArray.length));
 		}
 	}
 	//testing
@@ -99,7 +102,8 @@ while (fileArray.length != 0) {
 	}
 	run("Images to Stack", "name=Stack title=[] use");
 	run("Z Project...", "projection=[Max Intensity]");
-	saveAs("Tiff", pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".tif");
+	saveAs("Tiff", pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+
+	        channelString+".tif");
 	close("*");
 }
 print("Analysis finished!");
