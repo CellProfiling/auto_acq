@@ -37,12 +37,12 @@ garbage_wells = []
 
 def strip_fun(files, filebases, _wells):
     for f in files:
-        print(re.sub('C\d\d.+$', '', f))
+        #print(re.sub('C\d\d.+$', '', f))
         filebases.append(re.sub('C\d\d.+$', '', f))
         wellmatch = re.search('U\d\d--V\d\d--', f)
 
         if wellmatch:                      
-            print('found', wellmatch.group())
+            #print('found', wellmatch.group())
             _wells.append(wellmatch.group())
 
         else:
@@ -94,5 +94,5 @@ def write_csv(path, dict_list):
         w.writeheader()
         w.writerows(dict_list)
 
-write_csv('/home/martin/Skrivbord/first_output_gains.csv', first_gain_dicts)
-write_csv('/home/martin/Skrivbord/sec_output_gains.csv', sec_gain_dicts)
+write_csv(working_dir+"first_output_gains.csv", first_gain_dicts)
+write_csv(working_dir+"sec_output_gains.csv", sec_gain_dicts)
