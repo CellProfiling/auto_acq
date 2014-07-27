@@ -78,7 +78,7 @@ for i in range(len(first_filebases)):
 
     first_gain_dicts = process_output(first_gain_dicts, wells, i, r_output)
     # FIX INPUT_GAINS!!!
-    input_gains = "\"c("+r_output.split()[0]+","+r_output.split()[1]+","+r_output.split()[2]+","+r_output.split()[3]+")\""
+    input_gains = ""+r_output.split()[0]+" "+r_output.split()[1]+" "+r_output.split()[2]+" "+r_output.split()[3]+""
     r_output = subprocess.check_output(["Rscript", sec_r_script,
             first_std_working_dir, first_std_filebases[0],
             first_initialgains_file, input_gains, sec_std_working_dir,

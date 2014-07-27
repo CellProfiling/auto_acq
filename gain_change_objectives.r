@@ -1,13 +1,15 @@
 ## Author(s): Kalle von Feilitzen & Martin Hjelmare
 
 # Gain calculation script
-# Run with "Rscript path/to/script/gain.r path/to/working/dir/
-# path/to/histogram-csv-filebase path/to/initialgains/csv-file"
+# Run with "Rscript path/to/script.r path/to/first/working/dir/
+# path/to/first-histogram-csv-filebase path/to/first/initialgains/csv-file
+# input-gains path/to/second/working/dir/
+# path/to/second-histogram-csv-filebase path/to/second/initialgains/csv-file"
 # from linux command line.
 # Repeat for each well.
 
-# New arguments and input needed:
-# inputGain, 1 per channel, so should be vector with 4 places
+# Arguments and input needed:
+# input_gain, one per channel, space separated string with four numbers for four channels
 # first objective path/to/working/dir/
 # second objective path/to/working/dir/
 # first objective path/to/histogram-csv-filebase
@@ -16,36 +18,36 @@
 # initialgains for second objective
 
 # Gain calculation script
-firstObjWorkPath <- commandArgs(TRUE)[1]
-firstObjHistoBase <- commandArgs(TRUE)[2]
-firstInitialgainsCSV <- commandArgs(TRUE)[3]
-#inputGain <- commandArgs(TRUE)[4]
-secObjWorkPath <- commandArgs(TRUE)[5]
-secObjHistoBase <- commandArgs(TRUE)[6]
-secInitialgainsCSV <- commandArgs(TRUE)[7]
+first_obj_path <- commandArgs(TRUE)[1]
+first_obj_base <- commandArgs(TRUE)[2]
+first_init_gain_csv <- commandArgs(TRUE)[3]
+input_gain <- as.numeric(strsplit(commandArgs(TRUE)[4], " ")[[1]])
+first_obj_path <- commandArgs(TRUE)[5]
+sec_obj_base <- commandArgs(TRUE)[6]
+sec_init_gain_csv <- commandArgs(TRUE)[7]
 
-#firstObjWorkPath <- "/home/martin/Skrivbord/test/10x/maxprojs/"
-#firstObjHistoBase <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
-#firstInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain.csv"
-inputGain <- c(843,751,910,759)
-#secObjWorkPath <- "/home/martin/Skrivbord/test/63x/maxprojs/"
-#secObjHistoBase <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
-#secInitialgainsCSV <- "/home/martin/Dev/auto_acq/gain2.csv"
+#first_obj_path <- "/home/martin/Skrivbord/test/10x/maxprojs/"
+#first_obj_base <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
+#first_init_gain_csv <- "/home/martin/Dev/auto_acq/gain.csv"
+#input_gain <- c(843,751,910,759)
+#first_obj_path <- "/home/martin/Skrivbord/test/63x/maxprojs/"
+#sec_obj_base <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
+#sec_init_gain_csv <- "/home/martin/Dev/auto_acq/gain2.csv"
 
 # Make function and call with the different objective arguments
 # and with gain values from previous screening
-# Return regression curv function as output
-# Arguments to specify what is x and what is y in plot, regression etc
-func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
+# Return output from second regression curv function
+# on_off is switch to specify what is x and what is y in plot, regression etc
+func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
   
   gain <- list()
   bins <- list()
   gains <- list()
   
-  green <- 11;  # 11 images
-  blue <- 18;		# 7 images
-  yellow <- 25;	# 7 images
-  red <- 32;		# 7 images
+  green <- 11;      # 11 images
+  blue <- 18;       # 7 images
+  yellow <- 25;     # 7 images
+  red <- 32;        # 7 images
   channel <- vector()
   channel_name <- vector()
   channel <- append(channel, rep(green, green-length(channel)))
@@ -63,10 +65,10 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
     gains[[i]] <- vector()
   }
   
-  setwd(objWorkPath)
-  filebase <- objHistoBase
+  setwd(obj_path)
+  filebase <- obj_base
   # Initial gain values used
-  initialgains <- read.csv(initGainsFile)$gain
+  initialgains <- read.csv(init_gain_csv)$gain
   
   # Create curve and function for each individual well
   for (i in 1:32) {
@@ -111,8 +113,6 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
     bins_c <- bins[[i]]
     gains_c <- gains[[i]]
     
-    
-    
     # Remove values not making a upward trend (Martin Hjelmare)
     point.connected <- 0
     point.start <- 1
@@ -135,14 +135,13 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
     gains_c <- gains_c[point.start:point.end]
     gain[[i]] <- round(initialgains[channels[i]])
     
-    # HAVE TO ADD CHANGABLE NLS FUNCTION AND STARTING VALUES AFTER THE ON/OFF SWITCH TO MAKE IT WORK
     # Switch to change axis for plots and regressions
-    if (onOff == "gain.bin") {
+    if (on_off == "gain_bin") {
       x <- gains_c
       y <- bins_c
       output[i] <- round(binmax)
     }
-    if (onOff == "bin.gain") {
+    if (on_off == "bin_gain") {
       x <- bins_c
       y <- gains_c
       output[i] <- round(gain[[i]])
@@ -155,10 +154,11 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
     if (length(y) >= 3) {
       # Fit curve
       sink("/dev/null")	# Suppress output
-      if (onOff == "gain.bin") {
+      # Different nsl starting values depending on ON/OFF switch
+      if (on_off == "gain_bin") {
         curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C=-1, D=5), trace=T), warning=function(e) NULL, error=function(e) NULL)
       }
-      if (onOff == "bin.gain") {
+      if (on_off == "bin_gain") {
         curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C=1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
       }
       sink()
@@ -174,13 +174,12 @@ func3 <- function(initGainsFile, input, objWorkPath, objHistoBase, onOff) {
       }
     }
     dev.off()
-    
   }
   return(output)
 }
 
 # Use func3 to get output from first objective which will be input for second objective in func3 next round
-inputSecObj <- func3(firstInitialgainsCSV, inputGain, firstObjWorkPath, firstObjHistoBase, "gain.bin")
-outputSecObj <- func3(secInitialgainsCSV, inputSecObj, secObjWorkPath, secObjHistoBase, "bin.gain")
+input_sec_obj <- func3(first_init_gain_csv, input_gain, first_obj_path, first_obj_base, "gain_bin")
+output_sec_obj <- func3(sec_init_gain_csv, input_sec_obj, first_obj_path, sec_obj_base, "bin_gain")
 
-cat(paste(outputSecObj[1], outputSecObj[2], outputSecObj[3], outputSecObj[4]))
+cat(paste(output_sec_obj[1], output_sec_obj[2], output_sec_obj[3], output_sec_obj[4]))
