@@ -76,7 +76,7 @@ for (i in 1:32) {
 for (i in 1:(length(channels))) {
 	bins_c <- bins[[i]]
 	gains_c <- gains[[i]]
-	png(filename=paste(channel_name[channels[i]], "_gain.png", sep = ""))
+	png(filename=paste(filebase, channel_name[channels[i]], "_gain.png", sep = ""))
 	plot(bins_c, gains_c)
 	# Remove values not making a upward trend (Martin Hjelmare)
 	point.connected <- 0
