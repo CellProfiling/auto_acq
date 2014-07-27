@@ -22,7 +22,7 @@ first_obj_path <- commandArgs(TRUE)[1]
 first_obj_base <- commandArgs(TRUE)[2]
 first_init_gain_csv <- commandArgs(TRUE)[3]
 input_gain <- as.numeric(strsplit(commandArgs(TRUE)[4], " ")[[1]])
-first_obj_path <- commandArgs(TRUE)[5]
+sec_obj_path <- commandArgs(TRUE)[5]
 sec_obj_base <- commandArgs(TRUE)[6]
 sec_init_gain_csv <- commandArgs(TRUE)[7]
 
@@ -30,7 +30,7 @@ sec_init_gain_csv <- commandArgs(TRUE)[7]
 #first_obj_base <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
 #first_init_gain_csv <- "/home/martin/Dev/auto_acq/gain.csv"
 #input_gain <- c(843,751,910,759)
-#first_obj_path <- "/home/martin/Skrivbord/test/63x/maxprojs/"
+#sec_obj_path <- "/home/martin/Skrivbord/test/63x/maxprojs/"
 #sec_obj_base <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
 #sec_init_gain_csv <- "/home/martin/Dev/auto_acq/gain2.csv"
 
@@ -147,7 +147,7 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
       output[i] <- round(gain[[i]])
     }
     
-    png(filename=paste(channel_name[channels[i]], "_gain.png", sep = ""))
+    png(filename=paste(filebase, channel_name[channels[i]], "_gain.png", sep = ""))
     plot(x, y)
     
     #if (length(bins_c) >= 3) {
@@ -180,6 +180,6 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
 
 # Use func3 to get output from first objective which will be input for second objective in func3 next round
 input_sec_obj <- func3(first_init_gain_csv, input_gain, first_obj_path, first_obj_base, "gain_bin")
-output_sec_obj <- func3(sec_init_gain_csv, input_sec_obj, first_obj_path, sec_obj_base, "bin_gain")
+output_sec_obj <- func3(sec_init_gain_csv, input_sec_obj, sec_obj_path, sec_obj_base, "bin_gain")
 
 cat(paste(output_sec_obj[1], output_sec_obj[2], output_sec_obj[3], output_sec_obj[4]))
