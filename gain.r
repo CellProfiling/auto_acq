@@ -1,4 +1,4 @@
-## Author: Kalle von Feilitzen
+## Author(s): Kalle von Feilitzen, Fredric J & Martin Hjelmare
 
 # Gain calculation script
 # Run with "Rscript path/to/script/gain.r path/to/working/dir/
