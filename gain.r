@@ -15,10 +15,10 @@ gain <- list()
 bins <- list()
 gains <- list()
 
-green <- 11;	  # 11 images
-blue <- 18;		  # 7 images
-yellow <- 25;	  # 7 images
-red <- 32;		  # 7 images
+green <- 11;    # 11 images
+blue <- 18;     # 7 images
+yellow <- 25;   # 7 images
+red <- 32;      # 7 images
 channel <- vector()
 channel_name <- vector()
 channel <- append(channel, rep(green, green-length(channel)))
