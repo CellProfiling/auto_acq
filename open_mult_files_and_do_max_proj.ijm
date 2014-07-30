@@ -96,7 +96,7 @@ while (fileArray.length != 0) {
 
 	for (i = 0; i < imagesToStack.length; i++) {
 		open(imagesToStack[i]);
-		if ((512 != getWidth()) || 512 != getHeight()) {
+		if ((512 != getWidth()) || (512 != getHeight())) {
 			close();
 		}
 	}
