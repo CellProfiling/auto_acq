@@ -84,8 +84,10 @@ for (i = 0; i < fileArray.length; i++) {
 	yField = substring(fileArray[i], yFieldIndex+3, yFieldIndex+5);
 
 	if (channelString == "00") {
+		run("Blue");
+	} else if (channelString == "01") {
 		run("Green");
-	} else if (channelString == "01" || channelString == "02") {
+	} else if (channelString == "02" || channelString == "03") {
 		run("Red");
 	}
 	
