@@ -156,7 +156,7 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
       sink("/dev/null")	# Suppress output
       # Different nsl starting values depending on ON/OFF switch
       if (on_off == "gain_bin") {
-        curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C=-1, D=5), trace=T), warning=function(e) NULL, error=function(e) NULL)
+        curv2 <- tryCatch(nls(y ~ exp(C+x*D), start=list(C=0, D=0), trace=T), warning=function(e) NULL, error=function(e) NULL)
       }
       if (on_off == "bin_gain") {
         curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C=1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
