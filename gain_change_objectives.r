@@ -26,12 +26,12 @@ sec_obj_path <- commandArgs(TRUE)[5]
 sec_obj_base <- commandArgs(TRUE)[6]
 sec_init_gain_csv <- commandArgs(TRUE)[7]
 
-#first_obj_path <- "/home/martin/Skrivbord/test/10x/maxprojs/"
-#first_obj_base <- "/home/martin/Skrivbord/test/10x/maxprojs/U00--V00--"
+#first_obj_path <- "/home/martin/Skrivbord/test/std/10x/maxprojs/"
+#first_obj_base <- "/home/martin/Skrivbord/test/std/10x/maxprojs/U00--V00--"
 #first_init_gain_csv <- "/home/martin/Dev/auto_acq/gain.csv"
-#input_gain <- c(843,751,910,759)
-#sec_obj_path <- "/home/martin/Skrivbord/test/63x/maxprojs/"
-#sec_obj_base <- "/home/martin/Skrivbord/test/63x/maxprojs/U00--V00--"
+#input_gain <- c(813,1004,910,756)
+#sec_obj_path <- "/home/martin/Skrivbord/test/std/40x/maxprojs/"
+#sec_obj_base <- "/home/martin/Skrivbord/test/std/40x/maxprojs/U00--V00--"
 #sec_init_gain_csv <- "/home/martin/Dev/auto_acq/gain2.csv"
 
 # Make function and call with the different objective arguments
@@ -156,7 +156,7 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
       sink("/dev/null")	# Suppress output
       # Different nsl starting values depending on ON/OFF switch
       if (on_off == "gain_bin") {
-        curv2 <- tryCatch(nls(y ~ exp(C+x*D), start=list(C=0, D=0), trace=T), warning=function(e) NULL, error=function(e) NULL)
+        curv2 <- tryCatch(nls(y ~ exp(C+x*D), start=list(C=10, D=0), trace=T), warning=function(e) NULL, error=function(e) NULL)
       }
       if (on_off == "bin_gain") {
         curv2 <- tryCatch(nls(y ~ C*x^D, start=list(C=1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
@@ -164,13 +164,27 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
       sink()
       # Find function
       if (!is.null(curv2)) {
-        func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
+        if (on_off == "gain_bin") {
+          func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {exp(A+val*B)}
+        }
+        if (on_off == "bin_gain") {
+          func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
+        }
+        #testing
+        #print(i)
         lines(x, fitted.values(curv2), lwd=2, col="green")
+        #testing
+        #print(i)
         abline(v=input[i])
-
+        #testing
+        #print(input[i])
+        #print(i)
+        
         # Enter gain values from previous gain screening with first
         # objective into function func2
         output[i] <- round(func2(input[i]))
+        #testing
+        #print(output[i])
       }
     }
     dev.off()
