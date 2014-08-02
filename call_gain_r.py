@@ -86,6 +86,8 @@ for i in range(len(first_filebases)):
             first_std_working_dir, first_std_filebases[0],
             first_initialgains_file, input_gains, sec_std_working_dir,
             sec_std_filebases[0], sec_initialgains_file])
+    # testing
+    print(r_output)
     
     sec_gain_dicts = process_output(sec_gain_dicts, wells, i, r_output)
 
