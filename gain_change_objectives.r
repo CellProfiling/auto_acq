@@ -170,21 +170,12 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
         if (on_off == "bin_gain") {
           func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
         }
-        #testing
-        #print(i)
         lines(x, fitted.values(curv2), lwd=2, col="green")
-        #testing
-        #print(i)
         abline(v=input[i])
-        #testing
-        #print(input[i])
-        #print(i)
         
         # Enter gain values from previous gain screening with first
         # objective into function func2
         output[i] <- round(func2(input[i]))
-        #testing
-        #print(output[i])
       }
     }
     dev.off()
