@@ -36,17 +36,15 @@ green_list = round_values(green, green_list)
 
 green_unique = sorted(set(green_list))
 
-def find_median(input_list, input_dict):
-    round_values(input_dict, input_list)
-    median = int(numpy.median(input_list))
-    return median
-
 blue_list = []
-blue_median = find_median(blue_list, blue)
+round_values(blue, blue_list)
+blue_median = int(numpy.median(blue_list))
 yellow_list = []
-yellow_median = find_median(yellow_list, yellow)
+round_values(yellow, yellow_list)
+yellow_median = int(numpy.median(yellow_list))
 red_list = []
-red_median = find_median(red_list, red)
+round_values(red, red_list)
+red_median = int(numpy.median(red_list))
 
 # For each pos in green_unique, copy job, change gain in channels,
 # assign the job if value of green_unique matches any value in green
