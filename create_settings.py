@@ -27,7 +27,8 @@ red = create_dict(gains, red, "well", "red")
 
 def round_values(input_dict, output_list):
     for k, v in input_dict.iteritems():
-        input_dict[k] = int(round(int(v), -1))
+        v = int(round(int(v), -1))
+        input_dict[k] = v
         output_list.append(v)
     return
 
