@@ -51,16 +51,16 @@ red_median = int(numpy.median(red_list))
 # assign the job if value of green_unique matches any value in green
 i = 1
 for value in green_unique:
-    #copy <LDM_Block_Sequence_Block 2 BlockID=str(n)> to
-    # <LDM_Block_Sequence_Block tot+i BlockID=str(n+1)>
-    #copy <LDM_Block_Sequence_Element 2 BlockID=str(n) ElementID=str(p)> to
-    # <LDM_Block_Sequence_Element tot+i BlockID=str(n+1) ElementID=str(p+1)>
-    #set gain for job tot+i
+    #copy <LDM_Block_Sequence_Block n BlockID=str(n)> to
+    # <LDM_Block_Sequence_Block n+i BlockID=str(n+i)>
+    #copy <LDM_Block_Sequence_Element n BlockID=str(n) ElementID=str(p)> to
+    # <LDM_Block_Sequence_Element n+i BlockID=str(n+i) ElementID=str(p+i)>
+    #set gain for job n+i
     #green_detector = value
     #blue_detector = blue_median
     #yellow_detector = yellow_median
     #red_detector = red_median
     for k, v in green.iteritems():
         if v == value:
-            #assign job tot+i to well k
+            #assign job n+i to well k
     i += 1
