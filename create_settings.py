@@ -36,7 +36,7 @@ def round_values(input_dict, output_list):
     return
 
 green_list = []
-green_list = round_values(green, green_list)
+round_values(green, green_list)
 
 green_unique = sorted(set(green_list))
 
@@ -104,7 +104,7 @@ for green_val in green_unique:
                 GAIN=str(red_median))
     
     for k, v in green.iteritems():
-        if v == value:
+        if v == green_val:
             #assign job n+i to well k
             wellx = str(int(k[1:3])+1)
             welly = str(int(k[6:8])+1)
