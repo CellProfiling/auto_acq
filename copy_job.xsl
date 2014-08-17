@@ -15,23 +15,17 @@
 			<xsl:apply-templates select="node()|@*"/>
 		</xsl:copy>
 	</xsl:template>
+	
 	<!-- Copy & BlockID, Element -->
-	<xsl:template match="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Element_List/LDM_Block_Sequence_Element/@BlockID">
-	    <xsl:attribute name="BlockID">
-			<xsl:value-of select="$BLOCKID"/>
-		</xsl:attribute>
-	    <xsl:choose>
-			<xsl:when test="./@BlockID=$BLOCKID">
-			    <xsl:attribute name="BlockID">
-					<xsl:value-of select="$NEWBLOCKID"/>
-				</xsl:attribute>				
-			</xsl:when>
-		</xsl:choose>
+	<xsl:template match="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Element_List/LDM_Block_Sequence_Element[@BlockID='114']">
+	    <xsl:copy-of select="/Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Element_List/LDM_Block_Sequence_Element[@BlockID='114']"/>
+	    <xsl:copy-of select="/Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Element_List/LDM_Block_Sequence_Element[@BlockID='114']"/>
 	</xsl:template>
+	
 	<!-- Copy & BlockID, Block -->
 	<xsl:template match="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/@BlockID">
 	    <xsl:choose>
-			<xsl:when test="not($BLOCKID='0') and @BlockID=$BLOCKID">
+			<xsl:when test="$BLOCKID='0' and @BlockID=$BLOCKID">
     			<xsl:copy-of select="current()"/>
 			    <xsl:attribute name="BlockID">
 					<xsl:value-of select="$NEWBLOCKID"/>
@@ -44,6 +38,7 @@
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
+	
 	<!-- BlockName -->
 	<xsl:template match="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential/@BlockName">
 	    <xsl:choose>
@@ -59,6 +54,7 @@
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
+	
 <!-- UserSettingName -->
 	<!-- Master -->
 	<xsl:template match="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential/LDM_Block_Sequential_Master/ATLConfocalSettingDefinition/@UserSettingName">
