@@ -1,10 +1,13 @@
 import csv
 import numpy
+from lxml import etree
+import re
 
 working_dir = sys.argv[1]
 gain_file = sys.argv[2]
 xml_input = sys.argv[3]
 lrp_input = sys.argv[4]
+
 gains = []
 with open(gain_file) as _file:
     reader = csv.DictReader(_file)
@@ -47,10 +50,23 @@ red_list = []
 round_values(red, red_list)
 red_median = int(numpy.median(red_list))
 
+xml_doc = etree.parse(xml_input)
+lrp_doc = etree.parse(lrp_input)
+get_val = etree.parse('/home/martin/Dev/auto_acq/getval.xsl')
+copy_job = etree.parse('/home/martin/Dev/auto_acq/copy_job.xsl')
+set_gain = etree.parse('/home/martin/Dev/auto_acq/gain_set.xsl')
+enable = etree.parse('/home/martin/Dev/auto_acq/enable.xsl')
+
+t_get_val = etree.XSLT(get_val)
+t_copy_job = etree.XSLT(copy_job)
+t_set_gain = etree.XSLT(set_gain)
+t_enable = etree.XSLT(enable)
+
 # For each pos in green_unique, copy job, change gain in channels,
 # assign the job if value of green_unique matches any value in green
-i = 1
-for value in green_unique:
+
+for green_val in green_unique:
+    #find last BlockID, ElementID and UserSettingName for last existing job
     #copy <LDM_Block_Sequence_Block n BlockID=str(n)> to
     # <LDM_Block_Sequence_Block n+i BlockID=str(n+i)>
     #copy <LDM_Block_Sequence_Element n BlockID=str(n) ElementID=str(p)> to
@@ -60,7 +76,43 @@ for value in green_unique:
     #blue_detector = blue_median
     #yellow_detector = yellow_median
     #red_detector = red_median
+    
+    last_blockid = str(t_get_val(lrp_doc, BLOCKID="1")).split("\n")[-2]
+    blockid = int(last_blockid)
+    new_blockid = blockid+3
+    last_elementid = str(t_get_val(lrp_doc, ELEMENTID="1")).split("\n")[-2]
+    elementid = int(last_elementid)
+    last_us_name = str(t_get_val(lrp_doc, USNAME="2")).split("\n")[-2]
+    us_name_no = int(re.sub(r"\D", "", last_us_name))
+    block_name = etree.XSLT.strparam('job'+str(new_blockid))
+    
+    lrp_doc = t_copy_job(lrp_doc, BLOCKID=str(blockid),
+                NEWBLOCKID=str(new_blockid), ELEMENTID=str(elementid))
+    lrp_doc = t_copy_job(lrp_doc, NEWBLOCKID=str(new_blockid), BLOCKNAME=block_name)
+    for j in range(4): # master + 3 sequences
+        us_name = etree.XSLT.strparam('S'+str(us_name_no+j+2)) # add 2 for new job
+        lrp_doc = t_copy_job(lrp_doc, NEWBLOCKID=str(new_blockid),
+                    SEQ=str(j+1), USNAME=us_name)
+
+    lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'green'",
+                GAIN=str(green_val))
+    lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'blue'",
+                GAIN=str(blue_median))
+    lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'yellow'",
+                GAIN=str(yellow_median))
+    lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'red'",
+                GAIN=str(red_median))
+    
     for k, v in green.iteritems():
         if v == value:
             #assign job n+i to well k
-    i += 1
+            wellx = str(int(k[1:3])+1)
+            welly = str(int(k[6:8])+1)
+            for i in range(2): # 2x2 fields
+                for j in range(2):
+                    xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly,
+                            FIELDX=str(j+1), FIELDY=str(i+1), ENABLE="'true'",
+                            JOBID=str(blockid), JOBNAME=block_name, DRIFT="'true'")
+
+lrp_doc.write(lrp_input[0:-4]+'_new.lrp', pretty_print=False)
+xml_doc.write(xml_input[0:-4]+'_new.xml', pretty_print=False)
