@@ -42,16 +42,16 @@
 			<xsl:when test="$BLOCKID='1'">
 				<xsl:text>blockid</xsl:text><!-- header -->
 				<xsl:text>&#xa;</xsl:text><!-- new line -->
-				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/@BlockID">
+				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block">
 					<xsl:value-of select="@BlockID"/>
 					<xsl:text>&#xa;</xsl:text><!-- new line -->
 				</xsl:for-each>
 			</xsl:when>
 		<!-- BlockName -->
 			<xsl:when test="$BLOCKNAME='1'">
-				<xsl:text>blockid</xsl:text><!-- header -->
+				<xsl:text>blockname</xsl:text><!-- header -->
 				<xsl:text>&#xa;</xsl:text><!-- new line -->
-				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential/@BlockName">
+				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential">
 					<xsl:value-of select="@BlockName"/>
 					<xsl:text>&#xa;</xsl:text><!-- new line -->
 				</xsl:for-each>
@@ -59,18 +59,18 @@
 		<!-- UserSettingName -->
 		    <!-- Master -->
 			<xsl:when test="$USNAME='1'">
-				<xsl:text>usname</xsl:text><!-- header -->
+				<xsl:text>usname_master</xsl:text><!-- header -->
 				<xsl:text>&#xa;</xsl:text><!-- new line -->
-				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential/LDM_Block_Sequential_Master/ATLConfocalSettingDefinition/@UserSettingName">
+				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential/LDM_Block_Sequential_Master/ATLConfocalSettingDefinition">
 					<xsl:value-of select="@UserSettingName"/>
 					<xsl:text>&#xa;</xsl:text><!-- new line -->
 				</xsl:for-each>
 			</xsl:when>
 		    <!-- Sequential -->
 			<xsl:when test="$USNAME='2'">
-				<xsl:text>usname</xsl:text><!-- header -->
+				<xsl:text>usname_seq</xsl:text><!-- header -->
 				<xsl:text>&#xa;</xsl:text><!-- new line -->
-				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential/LDM_Block_Sequential_List/ATLConfocalSettingDefinition/@UserSettingName">
+				<xsl:for-each select="Configuration/LDM_Block_Sequence/LDM_Block_Sequence_Block_List/LDM_Block_Sequence_Block/LDM_Block_Sequential/LDM_Block_Sequential_List/ATLConfocalSettingDefinition">
 					<xsl:value-of select="@UserSettingName"/>
 					<xsl:text>&#xa;</xsl:text><!-- new line -->
 				</xsl:for-each>
