@@ -63,6 +63,7 @@ fileArray = listFiles(dirChosen, topDir, ".+C00.+\.tif$", fileArray);
 // Open file to write output to.
 success = File.delete(topDir+"63x_coords.csv");
 output = File.open(topDir+"63x_coords.csv");
+print(output, "well,dx,dy");
 
 // For-loop ends at the bottom of the code, as most of it is done on each image.
 for (j = 0; j < fileArray.length; j++) {
@@ -143,7 +144,7 @@ for (j = 0; j < fileArray.length; j++) {
 		print("xWell: "+xWell);
 		print("yWell: "+yWell);
 		
-		print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxMy+","+dyMy); 
+		print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxMy+","+dyMy);
 		//Close the image.
     	close();
 	}	
