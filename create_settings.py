@@ -19,6 +19,7 @@ def create_dict(input_list, output_dict, key, value):
         output_dict[i[key]] = i[value]
     return output_dict
 
+# Sort gain data into one dict for each channel
 green = {}
 blue = {}
 yellow = {}
@@ -28,6 +29,7 @@ blue = create_dict(gains, blue, "well", "blue")
 yellow = create_dict(gains, yellow, "well", "yellow")
 red = create_dict(gains, red, "well", "red")
 
+# Round gain values to multiples of 10
 def round_values(input_dict, output_list):
     for k, v in input_dict.iteritems():
         v = int(round(int(v), -1))
@@ -38,8 +40,10 @@ def round_values(input_dict, output_list):
 green_list = []
 round_values(green, green_list)
 
+# Find the unique set of green gain values for whole plate
 green_unique = sorted(set(green_list))
 
+# Find median gain for whole plate for marker channels
 blue_list = []
 round_values(blue, blue_list)
 blue_median = int(numpy.median(blue_list))
@@ -72,14 +76,14 @@ for green_val in green_unique:
     #copy <LDM_Block_Sequence_Element n BlockID=str(n) ElementID=str(p)> to
     # <LDM_Block_Sequence_Element n+i BlockID=str(n+i) ElementID=str(p+i)>
     #set gain for job n+i
-    #green_detector = value
+    #green_detector = green_val
     #blue_detector = blue_median
     #yellow_detector = yellow_median
     #red_detector = red_median
     
     last_blockid = str(t_get_val(lrp_doc, BLOCKID="1")).split("\n")[-2]
     blockid = int(last_blockid)
-    new_blockid = blockid+3
+    new_blockid = blockid+3 # add 3 for new job
     last_elementid = str(t_get_val(lrp_doc, ELEMENTID="1")).split("\n")[-2]
     elementid = int(last_elementid)
     last_us_name = str(t_get_val(lrp_doc, USNAME="2")).split("\n")[-2]
@@ -114,5 +118,6 @@ for green_val in green_unique:
                             FIELDX=str(j+1), FIELDY=str(i+1), ENABLE="'true'",
                             JOBID=str(blockid), JOBNAME=block_name, DRIFT="'true'")
 
+# Save the xml to file
 lrp_doc.write(lrp_input[0:-4]+'_new.lrp', pretty_print=False)
 xml_doc.write(xml_input[0:-4]+'_new.xml', pretty_print=False)
