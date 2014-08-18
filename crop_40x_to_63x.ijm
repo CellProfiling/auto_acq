@@ -136,15 +136,15 @@ for (j = 0; j < fileArray.length; j++) {
 		dxPx = round((1024 - roiX[0] - 433) * (0.1892/0.0801));
 		dyPx = round((1024 - roiY[0] - 433 - 90) * (0.1892/0.0801));
 		
-		//um
-		dxMy = dxPx * 0.0801;
-		dyMy = dyPx * 0.0801;
+		//m
+		dxM = (dxPx * 0.0801)/1000000;
+		dyM = (dyPx * 0.0801)/1000000;
 
 		//Testing
 		print("xWell: "+xWell);
 		print("yWell: "+yWell);
 		
-		print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxMy+","+dyMy);
+		print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxM+","+dyM);
 		//Close the image.
     	close();
 	}	
