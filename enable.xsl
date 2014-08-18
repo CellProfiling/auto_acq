@@ -11,6 +11,8 @@
 	<xsl:param name="JOBID" select="'0'"/>
 	<xsl:param name="JOBNAME" select="'0'"/>
 	<xsl:param name="DRIFT" select="'0'"/>
+	<xsl:param name="DX" select="'0'"/>
+	<xsl:param name="DY" select="'0'"/>
 
 	<xsl:template match="node()|@*">
 		<xsl:copy>
@@ -70,6 +72,52 @@
 				<xsl:attribute name="Enabled">
 					<xsl:value-of select="../@Enabled"/>
 				</xsl:attribute>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+	
+	<xsl:template match="ScanFieldArray/ScanFieldData/FieldXCoordinate">
+	    <xsl:choose>
+			<xsl:when test="../@WellX=$WELLX and ../@WellY=$WELLY and ($FIELDX='0' or ../@FieldX=$FIELDX) and ($FIELDY='0' or ../@FieldY=$FIELDY)">
+	            <!-- FieldXCoordinate -->
+				<xsl:element name="FieldXCoordinate">
+					<xsl:choose>
+						<xsl:when test="not($DX='0')">
+							<xsl:value-of select="../FieldXCoordinate+$DX"/>
+						</xsl:when>
+						<xsl:otherwise>
+							<xsl:value-of select="../FieldXCoordinate"/>
+						</xsl:otherwise>
+					</xsl:choose>
+				</xsl:element>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:element name="FieldXCoordinate">
+					<xsl:value-of select="../FieldXCoordinate"/>
+				</xsl:element>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+	
+	<xsl:template match="ScanFieldArray/ScanFieldData/FieldYCoordinate">
+	    <xsl:choose>
+			<xsl:when test="../@WellX=$WELLX and ../@WellY=$WELLY and ($FIELDX='0' or ../@FieldX=$FIELDX) and ($FIELDY='0' or ../@FieldY=$FIELDY)">
+	            <!-- FieldYCoordinate -->
+				<xsl:element name="FieldYCoordinate">
+					<xsl:choose>
+						<xsl:when test="not($DY='0')">
+						    <xsl:value-of select="../FieldYCoordinate+$DY"/>
+						</xsl:when>
+						<xsl:otherwise>
+							<xsl:value-of select="../FieldYCoordinate"/>
+						</xsl:otherwise>
+					</xsl:choose>
+				</xsl:element>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:element name="FieldYCoordinate">
+					<xsl:value-of select="../FieldYCoordinate"/>
+				</xsl:element>
 			</xsl:otherwise>
 		</xsl:choose>
 	</xsl:template>
