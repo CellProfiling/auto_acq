@@ -150,3 +150,4 @@ for (j = 0; j < fileArray.length; j++) {
 }
 
 File.close(output);
+print("Analysis finished!")
