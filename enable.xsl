@@ -30,7 +30,7 @@
 								<xsl:value-of select="$ENABLE"/>
 						</xsl:when>
 						<xsl:otherwise>
-								<xsl:value-of select="../@Enabled"/>
+								<xsl:value-of select="$ENABLE"/>
 						</xsl:otherwise>
 					</xsl:choose>
 				</xsl:attribute>
