@@ -1,12 +1,13 @@
+import sys
 import csv
 import numpy
 from lxml import etree
 import re
 
-working_dir = sys.argv[1]
-gain_file = sys.argv[2]
-xml_input = sys.argv[3]
-lrp_input = sys.argv[4]
+#working_dir = sys.argv[1]
+gain_file = sys.argv[1]
+xml_input = sys.argv[2]
+lrp_input = sys.argv[3]
 
 gains = []
 with open(gain_file) as _file:
@@ -70,6 +71,9 @@ t_enable = etree.XSLT(enable)
 # assign the job if value of green_unique matches any value in green
 
 for green_val in green_unique:
+    #testing
+    print(green_val)
+
     #find last BlockID, ElementID and UserSettingName for last existing job
     #copy <LDM_Block_Sequence_Block n BlockID=str(n)> to
     # <LDM_Block_Sequence_Block n+i BlockID=str(n+i)>
@@ -112,12 +116,17 @@ for green_val in green_unique:
             #assign job n+i to well k
             wellx = str(int(k[1:3])+1)
             welly = str(int(k[6:8])+1)
-            for i in range(2): # 2x2 fields
+            for i in range(4): # 4x4 fields (all)
+                for j in range(4):
+                    xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly,
+                            FIELDX=str(j+1), FIELDY=str(i+1), ENABLE="'false'",
+                            JOBID=str(new_blockid), JOBNAME=block_name, DRIFT="'true'")
+            for i in range(2): # 2x2 fields, (2,2)(2,3)(3,2)(3,3)
                 for j in range(2):
                     xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly,
-                            FIELDX=str(j+1), FIELDY=str(i+1), ENABLE="'true'",
-                            JOBID=str(blockid), JOBNAME=block_name, DRIFT="'true'")
+                            FIELDX=str(j+2), FIELDY=str(i+2), ENABLE="'true'",
+                            JOBID=str(new_blockid), JOBNAME=block_name, DRIFT="'true'")
 
 # Save the xml to file
-lrp_doc.write(lrp_input[0:-4]+'_new.lrp', pretty_print=False)
+lrp_doc.write(lrp_input[0:-4]+'_new.lrp', method="xml", pretty_print=False)
 xml_doc.write(xml_input[0:-4]+'_new.xml', pretty_print=False)
