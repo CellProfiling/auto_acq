@@ -109,6 +109,10 @@ for (j = 0; j < fileArray.length; j++) {
 		// Get selection coordinates
 		getSelectionCoordinates(roiX, roiY);
 		
+		if(getBoolean("Do you want to use the cropped image for 63x imaging? Cancel will quit the macro.")) {
+		    NOT FINISHED!
+		}
+		
 		//Testing
 		for (k=0; k<roiX.length; k++) {
 			print(k+" "+roiX[k]+" "+roiY[k]);
