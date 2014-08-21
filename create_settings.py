@@ -89,7 +89,7 @@ for green_val in green_unique:
     blockid = int(last_blockid)
     new_blockid = blockid+3 # add 3 for new job
     last_elementid = str(t_get_val(lrp_doc, ELEMENTID="1")).split("\n")[-2]
-    elementid = int(last_elementid)
+    elementid = int(last_elementid)+1
     last_us_name = str(t_get_val(lrp_doc, USNAME="2")).split("\n")[-2]
     us_name_no = int(re.sub(r"\D", "", last_us_name))
     block_name = etree.XSLT.strparam('job'+str(new_blockid))
