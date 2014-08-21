@@ -92,7 +92,7 @@ for (i = 0; i < fileArray.length; i++) {
 	}
 	
 	run("8-bit");
-	saveAs("Jpeg", pathLUTs+"U"+wellX+"--V"+wellY+"--X"+xField+"--Y"+yField+
+	saveAs("png", pathLUTs+"U"+wellX+"--V"+wellY+"--X"+xField+"--Y"+yField+
 			"--C"+channelString+".jpg");
 	close("*");
 	}
