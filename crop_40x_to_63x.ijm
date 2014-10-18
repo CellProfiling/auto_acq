@@ -99,6 +99,9 @@ for (j = 0; j < fileArray.length; j++) {
 		cIndex = indexOf(name, "--C");
 		channel = substring(name, cIndex+3, cIndex+5);
 
+		open(replace(fileArray[j], "--C"+channel, "--C0"+3+""));
+		run("Merge Channels...", "c1="+replace(name, "--C"+channel, "--C0"+3+"")+" c2="+name+"");
+
 		// Make selection rectangle
 		makeRectangle(width/2, width/2, round(width*164/387.5), round(width*164/387.5));
 		
@@ -109,49 +112,51 @@ for (j = 0; j < fileArray.length; j++) {
 		// Get selection coordinates
 		getSelectionCoordinates(roiX, roiY);
 		
-		if(getBoolean("Do you want to use the cropped image for 63x imaging? Cancel will quit the macro.")) {
-		    NOT FINISHED!
-		}
+		if(!getBoolean("Do you want to save the position of the cropped image for 63x imaging? Cancel will quit the macro.")) {
+			close;
+		    j = 1e99; //break
+		} else {
+            
 		
-		//Testing
-		for (k=0; k<roiX.length; k++) {
-			print(k+" "+roiX[k]+" "+roiY[k]);
-		}
-
-		run("Crop");
-		saveAs("Tiff", ""+replace(fileArray[j], ".ome.tif", "_cropped.ome.tif"));		
-
-		for (k = 1; k < 4; k++) {
-			marker = replace(fileArray[j], "--C"+channel, "--C0"+k+"");
-			open(marker);
-			makeRectangle(roiX[0], roiY[0], round(width*164/387.5), round(width*164/387.5));
-			run("Crop");
-			saveAs("Tiff", ""+replace(marker, ".ome.tif", "_cropped.ome.tif"));
-			close();
-		}
-
-		// A half 63x zoom 1.5 image is ~433 px on a 40x zoom 1 image.
-		// 0.1892 um/px for 40x zoom 1. 0.0801 um/px for 63x zoom 1.5.
-		// Difference in XY after changing from 40x to 63x oil objective
-		// in Y is +17.0 um (90 px for 40x zoom 1) on the image, or -17.0 um
-		// on the table.
-
-        //pixels in a 63x zoom 1.5 image
-		dxPx = round((1024 - roiX[0] - 433) * (0.1892/0.0801));
-		dyPx = round((1024 - roiY[0] - 433 - 90) * (0.1892/0.0801));
 		
-		//m
-		dxM = (dxPx * 0.0801)/1000000;
-		dyM = (dyPx * 0.0801)/1000000;
+		    //Testing
+		    for (k=0; k<roiX.length; k++) {
+			    print(k+" "+roiX[k]+" "+roiY[k]);
+		    }	
 
-		//Testing
-		print("xWell: "+xWell);
-		print("yWell: "+yWell);
+		    for (k = 0; k < 4; k++) {
+			    imageChannel = replace(fileArray[j], "--C"+channel, "--C0"+k+"");
+			    open(imageChannel);
+			    makeRectangle(roiX[0], roiY[0], round(width*164/387.5), round(width*164/387.5));
+			    run("Crop");
+			    saveAs("Tiff", ""+replace(imageChannel, ".ome.tif", "_cropped.ome.tif"));
+			    close();
+		    }
+
+		    // A half 63x zoom 1.5 image is ~433 px on a 40x zoom 1 image.
+		    // 0.1892 um/px for 40x zoom 1. 0.0801 um/px for 63x zoom 1.5.
+    		// Difference in XY after changing from 40x to 63x oil objective
+	    	// in Y is +17.0 um (90 px for 40x zoom 1) on the image, or -17.0 um
+	    	// on the table. Don't need to correct for that if start coordinates are
+	    	// synced instead.
+
+            //pixels in a 63x zoom 1.5 image
+	    	dxPx = round((1024 - roiX[0] - 433) * (0.1892/0.0801));
+	    	dyPx = round((1024 - roiY[0] - 433) * (0.1892/0.0801));
 		
-		print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxM+","+dyM);
-		//Close the image.
-    	close();
-	}	
+	    	//m
+	    	dxM = (dxPx * 0.0801)/1000000;
+	    	dyM = (dyPx * 0.0801)/1000000;
+
+	    	//Testing
+	    	print("xWell: "+xWell);
+	    	print("yWell: "+yWell);
+		
+	    	print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxM+","+dyM);
+	    	//Close the image.
+        	close();
+	    }
+    }
 }
 
 File.close(output);
