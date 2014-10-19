@@ -56,9 +56,10 @@ function addToArray(value, array, position) {
 // Set path to image directory.
 dirChosen = getDirectory("Choose a Directory ");
 topDir = dirChosen;
+//File.makeDirectory(topDir+"cropped/");
 
 fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, ".+C00.+\.tif$", fileArray);
+fileArray = listFiles(dirChosen, topDir, ".+C00.+\\.tif$", fileArray);
 
 // Open file to write output to.
 success = File.delete(topDir+"63x_coords.csv");
@@ -73,9 +74,6 @@ for (j = 0; j < fileArray.length; j++) {
 
 	//Get image name.
 	name = getTitle();
-
-	//Testing
-	print(name);
 
 	//Image size (pixels)
 	width = getWidth;
@@ -114,6 +112,7 @@ for (j = 0; j < fileArray.length; j++) {
 		
 		if(!getBoolean("Do you want to save the position of the cropped image for 63x imaging? Cancel will quit the macro.")) {
 			close;
+			err=File.rename(fileArray[j], fileArray[j]+".bak");
 		    j = 1e99; //break
 		} else {
             
@@ -131,6 +130,8 @@ for (j = 0; j < fileArray.length; j++) {
 			    run("Crop");
 			    saveAs("Tiff", ""+replace(imageChannel, ".ome.tif", "_cropped.ome.tif"));
 			    close();
+			    err=File.rename(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), replace(imageChannel, ".ome.tif", "_cropped.ome.tif")+".bak");
+			    //err=File.rename(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), "image--.+", "/cropped/"+replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), ".+image--", "image--")));
 		    }
 
 		    // A half 63x zoom 1.5 image is ~433 px on a 40x zoom 1 image.
@@ -155,6 +156,7 @@ for (j = 0; j < fileArray.length; j++) {
 	    	print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxM+","+dyM);
 	    	//Close the image.
         	close();
+        	err=File.rename(fileArray[j], fileArray[j]+".bak");
 	    }
     }
 }
