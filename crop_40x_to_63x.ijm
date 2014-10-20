@@ -59,10 +59,11 @@ topDir = dirChosen;
 //File.makeDirectory(topDir+"cropped/");
 
 fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, ".+C00.+\\.tif$", fileArray);
+fileArray = listFiles(dirChosen, topDir, ".+C00\\.png$", fileArray);
 
 // Open file to write output to.
-success = File.delete(topDir+"63x_coords.csv");
+//success = File.delete(topDir+"63x_coords.csv");
+//NEED TO FIX OLD FILE EXISTENCE AND KEEPING OF OLD DATA
 output = File.open(topDir+"63x_coords.csv");
 print(output, "fov,dx,dy");
 
@@ -85,11 +86,11 @@ for (j = 0; j < fileArray.length; j++) {
 	} else {
 
 		//Well, field and channel
-		xWellIndex = indexOf(name, "--U");
+		xWellIndex = indexOf(name, "U");
 		yWellIndex = indexOf(name, "--V");
-		xWell = substring(name, xWellIndex+3, xWellIndex+5);
+		xWell = substring(name, xWellIndex+1, xWellIndex+3);
 		yWell = substring(name, yWellIndex+3, yWellIndex+5);
-		wellNumber = (8 * (parseInt(xWell)-1) + (parseInt(yWell)-1))+1;
+		wellNumber = (8 * (parseInt(xWell)) + (parseInt(yWell)))+1;
 		xFieldIndex = indexOf(name, "--X");
 		yFieldIndex = indexOf(name, "--Y");
 		xField = substring(name, xFieldIndex+3, xFieldIndex+5);
@@ -113,7 +114,6 @@ for (j = 0; j < fileArray.length; j++) {
 		if(!getBoolean("Do you want to save the position of the cropped image for 63x imaging? Cancel will quit the macro.")) {
 			close;
 			err=File.rename(fileArray[j], fileArray[j]+".bak");
-		    j = 1e99; //break
 		} else {
             
 		
@@ -128,9 +128,9 @@ for (j = 0; j < fileArray.length; j++) {
 			    open(imageChannel);
 			    makeRectangle(roiX[0], roiY[0], round(width*164/387.5), round(width*164/387.5));
 			    run("Crop");
-			    saveAs("Tiff", ""+replace(imageChannel, ".ome.tif", "_cropped.ome.tif"));
+			    saveAs("Tiff", ""+replace(imageChannel, ".png", "_cropped.tif"));
 			    close();
-			    err=File.rename(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), replace(imageChannel, ".ome.tif", "_cropped.ome.tif")+".bak");
+			    err=File.rename(replace(imageChannel, ".png", "_cropped.tif"), replace(imageChannel, ".png", "_cropped.tif")+".bak");
 			    //err=File.rename(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), "image--.+", "/cropped/"+replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), ".+image--", "image--")));
 		    }
 
