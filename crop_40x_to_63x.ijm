@@ -56,16 +56,20 @@ function addToArray(value, array, position) {
 // Set path to image directory.
 dirChosen = getDirectory("Choose a Directory ");
 topDir = dirChosen;
-//File.makeDirectory(topDir+"cropped/");
 
 fileArray = newArray();
 fileArray = listFiles(dirChosen, topDir, ".+C00\\.png$", fileArray);
 
+// Write existing coordinate file contents to new file.
+if (File.exists(topDir+"63x_coords.csv") == true) {
+	fileString = File.openAsString(topDir+"63x_coords.csv");
+} else {
+	fileString = "fov,dx,dy";
+}
+success = File.delete(topDir+"63x_coords.csv");
 // Open file to write output to.
-//success = File.delete(topDir+"63x_coords.csv");
-//NEED TO FIX OLD FILE EXISTENCE AND KEEPING OF OLD DATA
 output = File.open(topDir+"63x_coords.csv");
-print(output, "fov,dx,dy");
+print(output, fileString);
 
 // For-loop ends at the bottom of the code, as most of it is done on each image.
 for (j = 0; j < fileArray.length; j++) {
