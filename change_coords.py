@@ -1,9 +1,9 @@
+import sys
 import csv
 from lxml import etree
 
-working_dir = sys.argv[1]
-coord_file = sys.argv[2]
-xml_input = sys.argv[3]
+coord_file = sys.argv[1]
+xml_input = sys.argv[2]
 
 coords = []
 with open(coord_file) as _file:
@@ -47,6 +47,8 @@ for k, v in dxs.iteritems():
     fieldy = str(int(k[16:18])+1)
     dx = v
     dy = dys[k]
+    # Testing
+    print(wellx+" "+welly+" "+fieldx+" "+fieldy+" "+dx+" "+dy)
     xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly, FIELDX=fieldx,
             FIELDY=fieldy, ENABLE="'true'", DRIFT="'true'", DX=str(dx),
             DY=str(dy))
