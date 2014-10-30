@@ -12,8 +12,8 @@ first_std_working_dir = sys.argv[2]
 sec_std_working_dir = sys.argv[3]
 first_r_script = "/home/martin/Dev/auto_acq/gain.r"
 sec_r_script = "/home/martin/Dev/auto_acq/gain_change_objectives.r"
-first_initialgains_file = "/home/martin/Dev/auto_acq/gain.csv"
-sec_initialgains_file = "/home/martin/Dev/auto_acq/gain2.csv"
+first_initialgains_file = sys.argv[4]
+sec_initialgains_file = sys.argv[5]
 
 def search_files(file_list, rootdir, _match_string):
     for root, dirnames, filenames in os.walk(rootdir):
