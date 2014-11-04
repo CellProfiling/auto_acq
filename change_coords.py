@@ -34,6 +34,8 @@ for wellx in range(12):
     for welly in range(8):
         for fieldx in range(4): # 4x4 fields (all)
             for fieldy in range(4):
+                # Testing
+                print(wellx+" "+welly+" "+fieldx+" "+fieldy+)
                 xml_doc = t_enable(xml_doc, WELLX=str(wellx+1),
                             WELLY=str(welly+1), FIELDX=str(fieldx+1),
                             FIELDY=str(fieldy+1), ENABLE="'false'")
