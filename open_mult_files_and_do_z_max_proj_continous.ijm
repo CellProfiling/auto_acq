@@ -62,79 +62,78 @@ File.makeDirectory(pathMaxProjs);
 
 wellsNo = getNumber("Enter number of wells in the analysis.", 96);
 fieldsNo = getNumber("Enter number of fields per well.", 2);
+slices = getNumber("Enter number of slices per field of view.", 25);
 channelsNo = getNumber("Enter number of channels per field of view.", 32);
 
 count2 = 0;
 oldCount = 0;
 
-while(count2 < wellsNo*fieldsNo*channelsNo) {
+while(count2 < wellsNo*fieldsNo*slices*channelsNo) {
 
 	fileArray = newArray();
 	fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
 
 	while (fileArray.length != 0) {
-	
-	    jobIndex = indexOf(fileArray[0], "--J");
+
+		jobIndex = indexOf(fileArray[0], "--J");
         job = substring(fileArray[0], jobIndex+3, jobIndex+5);
-	    channelIndex = indexOf(fileArray[0], "--C");
-	    channelString = substring(fileArray[0], channelIndex+3, channelIndex+5);
-	    wellXIndex = indexOf(fileArray[0], "--U");
-	    wellX = substring(fileArray[0], wellXIndex+3, wellXIndex+5);
-	    wellYIndex = indexOf(fileArray[0], "--V");
-	    wellY = substring(fileArray[0], wellYIndex+3, wellYIndex+5);
+		channelIndex = indexOf(fileArray[0], "--C");
+		channelString = substring(fileArray[0], channelIndex+3, channelIndex+5);
+		wellXIndex = indexOf(fileArray[0], "--U");
+		wellX = substring(fileArray[0], wellXIndex+3, wellXIndex+5);
+		wellYIndex = indexOf(fileArray[0], "--V");
+		wellY = substring(fileArray[0], wellYIndex+3, wellYIndex+5);
+		fieldXIndex = indexOf(fileArray[0], "--X");
+		fieldX = substring(fileArray[0], fieldXIndex+3, fieldXIndex+5);
+		fieldYIndex = indexOf(fileArray[0], "--Y");
+		fieldY = substring(fileArray[0], fieldYIndex+3, fieldYIndex+5);
 
-	    imagesToStack = newArray();
-	    newFileArray = newArray();
-	    //testing
-	    print("Empty newFileArray");
-	    print(newFileArray.length);
+		imagesToStack = newArray();
+		newFileArray = newArray();
+		//testing
+		print("Empty newFileArray");
+		print(newFileArray.length);
 
-	    for (i = 0; i < fileArray.length; i++) {
-		    if (matches(fileArray[i], ".+--U"+wellX+".+--V"+wellY+"--J"+job+".+--C"+
-			    	channelString+".+\.tif$")) {
-			    imagesToStack = addToArray(fileArray[i], imagesToStack,
-			                    (imagesToStack.length));
-		    } else {
-			    newFileArray = addToArray(fileArray[i], newFileArray,
-			                    (newFileArray.length));
-		    }
-	    }
-	    //testing
-	    print("Filling newFileArray");
-	    print(newFileArray.length);
+		for (i = 0; i < fileArray.length; i++) {
+			if (matches(fileArray[i], ".+--U"+wellX+"--V"+wellY+"--J"+job+".+--X"+fieldX+"--Y"+fieldY+".+--C"+channelString+".+\.tif$")) {
+				imagesToStack = addToArray(fileArray[i], imagesToStack,
+			    	            (imagesToStack.length));
+			} else {
+				newFileArray = addToArray(fileArray[i], newFileArray,
+			    	            (newFileArray.length));
+			}
+		}
+		//testing
+		print("Filling newFileArray");
+		print(newFileArray.length);
 
-	    fileArray = newFileArray;
-        if(imagesToStack.length == fieldsNo) {
-        	oldCount = count2;
-	    	for (i = 0; i < imagesToStack.length; i++) {
-		    	open(imagesToStack[i]);
-		    	if ((512 != getWidth()) || (512 != getHeight())) {
-			    	close();
-		    	} else {
+		fileArray = newFileArray;
+		
+		if(imagesToStack.length == slices) {
+			oldCount = count2;
+			for (i = 0; i < imagesToStack.length; i++) {
+				open(imagesToStack[i]);
+				if ((512 > getWidth()) || (512 > getHeight())) {
+					close();
+				} else {
 		    		count2++;
 		    		print(count2);
 		    	}
-	    	}
-        }
-        if(oldCount+fieldsNo==count2) {
-        	run("Images to Stack", "name=Stack title=[] use");
-	    	run("Z Project...", "projection=[Max Intensity]");
-	    	pathProjImage = pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".tif";
-	    	saveAs("Tiff", pathProjImage);
-	    	nBins = 256;
-			getHistogram(values, counts, nBins);
-			d=File.open(pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".ome.csv");
-			print(d, "bin,count"); 
-			for (k=0; k<nBins; k++) { 
-				print(d, k+","+counts[k]); 
 			}
-			File.close(d);
-	    	close("*");
-	    	err=File.rename(pathProjImage, pathProjImage+".bak");
-        }
-	    for (i = 0; i < imagesToStack.length; i++) {
+		}
+
+		if(oldCount+slices==count2) {
+			run("Images to Stack", "name=Stack title=[] use");
+			run("Z Project...", "projection=[Max Intensity]");
+			pathProjImage = pathMaxProjs+"U"+wellX+"--V"+wellY+"--X"+fieldX+"--Y"+fieldY+"--C"+
+	    		    channelString+".png";
+			saveAs("PNG", pathProjImage);
+			close("*");
+			err=File.rename(pathProjImage, pathProjImage+".bak");
+		}
+		for (i = 0; i < imagesToStack.length; i++) {
 	    	err=File.rename(imagesToStack[i], imagesToStack[i]+".bak");
 	    }
-    }
+	}
 }
 print("Analysis finished!");
