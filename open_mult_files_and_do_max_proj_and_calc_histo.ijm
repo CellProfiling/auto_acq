@@ -60,13 +60,13 @@ topDir = dirChosen;
 pathMaxProjs = topDir+"maxprojs/";
 File.makeDirectory(pathMaxProjs);
 
-wellsNo = 
-fieldsNo = 
-channelsNo = 
+wellsNo = getNumber("Enter number of wells in the analysis.", 96);
+fieldsNo = getNumber("Enter number of fields per well.", 2)
+channelsNo = getNumber("Enter number of channels per field of view.", 32)
 
-count = 0;
+count2 = 0;
 
-while(count < wellNo*fieldNo*channelsNo) {
+while(count2 < wellsNo*fieldsNo*channelsNo) {
 
 	fileArray = newArray();
 	fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
@@ -89,7 +89,7 @@ while(count < wellNo*fieldNo*channelsNo) {
 	    print(newFileArray.length);
 
 	    for (i = 0; i < fileArray.length; i++) {
-		    if (matches(fileArray[i], ".+--J"+job+".+--U"+wellX+".+--V"+wellY+".+--C"+
+		    if (matches(fileArray[i], ".+--U"+wellX+".+--V"+wellY+"--J"+job+".+--C"+
 			    	channelString+".+\.tif$")) {
 			    imagesToStack = addToArray(fileArray[i], imagesToStack,
 			                    (imagesToStack.length));
@@ -104,19 +104,37 @@ while(count < wellNo*fieldNo*channelsNo) {
 
 	    fileArray = newFileArray;
         if(imagesToStack.length == fieldsNo) {
-	    for (i = 0; i < imagesToStack.length; i++) {
-		    open(imagesToStack[i]);
-            count++;
-		    if ((512 != getWidth()) || (512 != getHeight())) {
-			    close();
-		    }
-	    }
+        	oldCount = count2;
+	    	for (i = 0; i < imagesToStack.length; i++) {
+		    	open(imagesToStack[i]);
+		    	if ((512 != getWidth()) || (512 != getHeight())) {
+			    	close();
+		    	} else {
+		    		count2++;
+		    		print(count2);
+		    	}
+	    	}
         }
-	    run("Images to Stack", "name=Stack title=[] use");
-	    run("Z Project...", "projection=[Max Intensity]");
-	    saveAs("Tiff", pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+
+        if(oldCount+2==count2) {
+        	run("Images to Stack", "name=Stack title=[] use");
+	    	run("Z Project...", "projection=[Max Intensity]");
+	    	pathProjImage = pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".tif";
+	    	saveAs("Tiff", pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+
 	            channelString+".tif");
-	    close("*");
+	    	nBins = 256;
+			getHistogram(values, counts, nBins);
+			d=File.open(pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".ome.csv");
+			print(d, "bin,count"); 
+			for (k=0; k<nBins; k++) { 
+				print(d, k+","+counts[k]); 
+			}
+			File.close(d);
+	    	close("*");
+	    	err=File.rename(pathProjImage, pathProjImage+".bak");
+        }
+	    for (i = 0; i < imagesToStack.length; i++) {
+	    	err=File.rename(imagesToStack[i], imagesToStack[i]+".bak");
+	    }
     }
 }
 print("Analysis finished!");
