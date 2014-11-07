@@ -103,6 +103,15 @@ for (j = 0; j < fileArray.length; j++) {
 		channel = substring(name, cIndex+3, cIndex+5);
 
 		open(replace(fileArray[j], "--C"+channel, "--C0"+3+""));
+		if (xWell == "00" && yWell == "00" && xField == "00" && yField == "00") {
+			makeRectangle(0, 0, width/2, width/2);
+			run("Draw");
+			makeRectangle(width/2, width/2, width/2, width/2);
+			run("Draw");
+			saveAs("PNG", topDir+"start_position.png");
+			close;
+			open(replace(fileArray[j], "--C"+channel, "--C0"+3+""));
+		}
 		run("Merge Channels...", "c1="+replace(name, "--C"+channel, "--C0"+3+"")+" c2="+name+"");
 
 		// Make selection rectangle

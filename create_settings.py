@@ -96,7 +96,8 @@ for green_val in green_unique:
     
     lrp_doc = t_copy_job(lrp_doc, BLOCKID=str(blockid),
                 NEWBLOCKID=str(new_blockid), ELEMENTID=str(elementid))
-    lrp_doc = t_copy_job(lrp_doc, NEWBLOCKID=str(new_blockid), BLOCKNAME=block_name)
+    lrp_doc = t_copy_job(lrp_doc, NEWBLOCKID=str(new_blockid),
+                BLOCKNAME=block_name)
     for j in range(4): # master + 3 sequences
         us_name = etree.XSLT.strparam('S'+str(us_name_no+j+2)) # add 2 for new job
         lrp_doc = t_copy_job(lrp_doc, NEWBLOCKID=str(new_blockid),
@@ -116,7 +117,7 @@ for green_val in green_unique:
             #assign job n+i to well k
             wellx = str(int(k[1:3])+1)
             welly = str(int(k[6:8])+1)
-            for i in range(4): # 4x4 fields (all)
+            for i in range(4): # disable 4x4 fields (all)
                 for j in range(4):
                     xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly,
                             FIELDX=str(j+1), FIELDY=str(i+1), ENABLE="'false'",
@@ -126,6 +127,10 @@ for green_val in green_unique:
                     xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly,
                             FIELDX=str(j+2), FIELDY=str(i+2), ENABLE="'true'",
                             JOBID=str(new_blockid), JOBNAME=block_name, DRIFT="'true'")
+
+# Enable U00--V00--X00--Y00, for start position calibration
+xml_doc = t_enable(xml_doc, WELLX=str(1), WELLY=str(1), FIELDX=str(1),
+            FIELDY=str(1), ENABLE="'true'", DRIFT="'true'")
 
 # Save the xml to file
 lrp_doc.write(lrp_input[0:-4]+'_new.lrp', method="xml", pretty_print=False)
