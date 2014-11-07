@@ -60,43 +60,54 @@ topDir = dirChosen;
 pathLUTs = topDir+"luts/";
 File.makeDirectory(pathLUTs);
 
-fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
+wellsNo = getNumber("Enter number of wells in the analysis.", 96);
+fieldsNo = getNumber("Enter number of fields per well.", 4);
+channelsNo = 4;
 
-for (i = 0; i < fileArray.length; i++) {
+count2 = 0;
 
-	print(fileArray[i]);
-	open(fileArray[i]);
+while(count2 < wellsNo*fieldsNo*channelsNo) {
+	fileArray = newArray();
+    fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
 
-	if ((2048 != getWidth()) || (2048 != getHeight())) {
-		close();
-	} else {
+    while (fileArray.length != 0) {
+
+	    print(fileArray[0]);
+	    open(fileArray[0]);
+
+	    if ((512 > getWidth()) || (512 > getHeight())) {
+		    close();
+            err=File.rename(fileArray[0], fileArray[0]+".bak");
+	    } else {
 	
-	channelIndex = indexOf(fileArray[i], "--C");
-	channelString = substring(fileArray[i], channelIndex+3, channelIndex+5);
-	wellXIndex = indexOf(fileArray[i], "--U");
-	wellX = substring(fileArray[i], wellXIndex+3, wellXIndex+5);
-	wellYIndex = indexOf(fileArray[i], "--V");
-	wellY = substring(fileArray[i], wellYIndex+3, wellYIndex+5);
-	xFieldIndex = indexOf(fileArray[i], "--X");
-	yFieldIndex = indexOf(fileArray[i], "--Y");
-	xField = substring(fileArray[i], xFieldIndex+3, xFieldIndex+5);
-	yField = substring(fileArray[i], yFieldIndex+3, yFieldIndex+5);
+	        channelIndex = indexOf(fileArray[0], "--C");
+	        channelString = substring(fileArray[0], channelIndex+3, channelIndex+5);
+	        wellXIndex = indexOf(fileArray[0], "--U");
+	        wellX = substring(fileArray[0], wellXIndex+3, wellXIndex+5);
+	        wellYIndex = indexOf(fileArray[0], "--V");
+	        wellY = substring(fileArray[0], wellYIndex+3, wellYIndex+5);
+	        xFieldIndex = indexOf(fileArray[0], "--X");
+	        yFieldIndex = indexOf(fileArray[0], "--Y");
+	        xField = substring(fileArray[0], xFieldIndex+3, xFieldIndex+5);
+	        yField = substring(fileArray[0], yFieldIndex+3, yFieldIndex+5);
 
-	if (channelString == "00") {
-		run("Green");
-	} else if (channelString == "01") {
-		run("Blue");
-	} else if (channelString == "02") {
-		run("Yellow");
-	} else if (channelString == "03") {
-		run("Red");
-	}
+	        if (channelString == "00") {
+		        run("Green");
+	        } else if (channelString == "01") {
+		        run("Blue");
+	        } else if (channelString == "02") {
+		        run("Yellow");
+	        } else if (channelString == "03") {
+		        run("Red");
+	        }
 	
-	run("8-bit");
-	saveAs("png", pathLUTs+"U"+wellX+"--V"+wellY+"--X"+xField+"--Y"+yField+
-			"--C"+channelString+".jpg");
-	close("*");
-	}
+	        run("8-bit");
+	        saveAs("PNG", pathLUTs+"U"+wellX+"--V"+wellY+"--X"+xField+"--Y"+yField+
+			        "--C"+channelString+".png");
+	        close("*");
+            err=File.rename(fileArray[0], fileArray[0]+".bak");
+	    }
+    }
 }
+
 print("Analysis finished!");
