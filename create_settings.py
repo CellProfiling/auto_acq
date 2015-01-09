@@ -4,10 +4,10 @@ import numpy
 from lxml import etree
 import re
 
-#working_dir = sys.argv[1]
-gain_file = sys.argv[1]
-xml_input = sys.argv[2]
-lrp_input = sys.argv[3]
+working_dir = sys.argv[1]
+gain_file = sys.argv[2]
+xml_input = sys.argv[3]
+lrp_input = sys.argv[4]
 
 gains = []
 with open(gain_file) as _file:
@@ -57,10 +57,10 @@ red_median = int(numpy.median(red_list))
 
 xml_doc = etree.parse(xml_input)
 lrp_doc = etree.parse(lrp_input)
-get_val = etree.parse('/home/martin/Dev/auto_acq/getval.xsl')
-copy_job = etree.parse('/home/martin/Dev/auto_acq/copy_job.xsl')
-set_gain = etree.parse('/home/martin/Dev/auto_acq/gain_set.xsl')
-enable = etree.parse('/home/martin/Dev/auto_acq/enable.xsl')
+get_val = etree.parse(working_dir+'getval.xsl')
+copy_job = etree.parse(working_dir+'copy_job.xsl')
+set_gain = etree.parse(working_dir+'gain_set.xsl')
+enable = etree.parse(working_dir+'enable.xsl')
 
 t_get_val = etree.XSLT(get_val)
 t_copy_job = etree.XSLT(copy_job)

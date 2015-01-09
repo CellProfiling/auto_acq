@@ -26,14 +26,6 @@ sec_obj_path <- commandArgs(TRUE)[5]
 sec_obj_base <- commandArgs(TRUE)[6]
 sec_init_gain_csv <- commandArgs(TRUE)[7]
 
-#first_obj_path <- "/home/martin/Skrivbord/test/std/10x/maxprojs/"
-#first_obj_base <- "/home/martin/Skrivbord/test/std/10x/maxprojs/U00--V00--"
-#first_init_gain_csv <- "/home/martin/Dev/auto_acq/gain.csv"
-#input_gain <- c(813,1004,910,756)
-#sec_obj_path <- "/home/martin/Skrivbord/test/std/40x/maxprojs/"
-#sec_obj_base <- "/home/martin/Skrivbord/test/std/40x/maxprojs/U00--V00--"
-#sec_init_gain_csv <- "/home/martin/Dev/auto_acq/gain2.csv"
-
 # Make function and call with the different objective arguments
 # and with gain values from previous screening
 # Return output from second regression curv function

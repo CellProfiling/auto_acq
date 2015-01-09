@@ -8,12 +8,13 @@ import re
 import csv
 
 working_dir = sys.argv[1]
-first_std_working_dir = sys.argv[2]
-sec_std_working_dir = sys.argv[3]
-first_r_script = "/home/martin/Dev/auto_acq/gain.r"
-sec_r_script = "/home/martin/Dev/auto_acq/gain_change_objectives.r"
-first_initialgains_file = sys.argv[4]
-sec_initialgains_file = sys.argv[5]
+imaging_dir = sys.argv[2]
+first_std_dir = sys.argv[3]
+sec_std_dir = sys.argv[4]
+first_r_script = working_dir+"gain.r"
+sec_r_script = working_dir+"gain_change_objectives.r"
+first_initialgains_file = sys.argv[5]
+sec_initialgains_file = sys.argv[6]
 
 def search_files(file_list, rootdir, _match_string):
     for root, dirnames, filenames in os.walk(rootdir):
@@ -22,12 +23,12 @@ def search_files(file_list, rootdir, _match_string):
     return file_list
 
 first_files = []
-first_files = search_files(first_files, working_dir, "*.csv")
+first_files = search_files(first_files, imaging_dir, "*.csv")
 
 first_std_files = []
 sec_std_files = []
-first_std_files = search_files(first_std_files, first_std_working_dir, "*.csv")
-sec_std_files = search_files(sec_std_files, sec_std_working_dir, "*.csv")
+first_std_files = search_files(first_std_files, first_std_dir, "*.csv")
+sec_std_files = search_files(sec_std_files, sec_std_dir, "*.csv")
 
 first_filebases = []
 wells = []
@@ -76,15 +77,15 @@ for i in range(len(first_filebases)):
     # path/to/histogram-csv-filebase path/to/initialgains/csv-file"
     # from linux command line.
     r_output = subprocess.check_output(["Rscript", first_r_script,
-            working_dir, first_filebases[i], first_initialgains_file])
+            imaging_dir, first_filebases[i], first_initialgains_file])
 
     first_gain_dicts = process_output(first_gain_dicts, wells, i, r_output)
 
     input_gains = (""+r_output.split()[0]+" "+r_output.split()[1]+" "+
                     r_output.split()[2]+" "+r_output.split()[3]+"")
     r_output = subprocess.check_output(["Rscript", sec_r_script,
-            first_std_working_dir, first_std_filebases[0],
-            first_initialgains_file, input_gains, sec_std_working_dir,
+            first_std_dir, first_std_filebases[0],
+            first_initialgains_file, input_gains, sec_std_dir,
             sec_std_filebases[0], sec_initialgains_file])
     # testing
     print(r_output)

@@ -2,8 +2,9 @@ import sys
 import csv
 from lxml import etree
 
-coord_file = sys.argv[1]
-xml_input = sys.argv[2]
+working_dir = sys.argv[1]
+coord_file = sys.argv[2]
+xml_input = sys.argv[3]
 
 coords = []
 with open(coord_file) as _file:
@@ -25,7 +26,7 @@ dys = create_dict(coords, dys, "fov", "dy")
 
 xml_doc = etree.parse(xml_input)
 
-enable = etree.parse('/home/martin/Dev/auto_acq/enable.xsl')
+enable = etree.parse(working_dir+'enable.xsl')
 
 t_enable = etree.XSLT(enable)
 
