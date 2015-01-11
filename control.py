@@ -18,6 +18,7 @@ first_initialgains_file = sys.argv[5]
 sec_initialgains_file = sys.argv[6]
 
 path_to_fiji = "/opt/Fiji/ImageJ-linux64"
+imagej_macro = working_dir+"do_max_proj_and_calc_histo_arg.ijm"
 
 # Change std_dir to be created from std_well
 
@@ -112,8 +113,12 @@ for image in images:
 well_paths = sorted(list(set(well_paths)))
 
 for well in well_paths:
-    imagej_output = subprocess.check_output([path_to_fiji, "--headless",
-            "-macro", working_dir+"open_mult_files_and_do_max_proj_and_calc_histo_arg.ijm", well])
+    imagej_output = subprocess.check_output([path_to_fiji,
+                                             "--headless",
+                                             "-macro",
+                                             imagej_macro,
+                                             well
+                                             ])
 
 first_files = []
 first_files = search_files(first_files, imaging_dir, "*.csv")
@@ -142,9 +147,12 @@ first_gain_dicts = []
 sec_gain_dicts = []
 
 def process_output(dict_list, well_list, i, output):
-    dict_list.append({ "well": well_list[i], "green": output.split()[0] ,
-        "blue": output.split()[1] , "yellow": output.split()[2] ,
-        "red": output.split()[3]})
+    dict_list.append({"well": well_list[i],
+                      "green": output.split()[0],
+                      "blue": output.split()[1],
+                      "yellow": output.split()[2],
+                      "red": output.split()[3]
+                      })
     return dict_list
 
 # for all wells run R script
@@ -154,17 +162,27 @@ for i in range(len(first_filebases)):
     # Run with "Rscript path/to/script/gain.r path/to/working/dir/
     # path/to/histogram-csv-filebase path/to/initialgains/csv-file"
     # from linux command line.
-    r_output = subprocess.check_output(["Rscript", first_r_script,
-            imaging_dir, first_filebases[i], first_initialgains_file])
+    r_output = subprocess.check_output(["Rscript",
+                                        first_r_script,
+                                        imaging_dir,
+                                        first_filebases[i],
+                                        first_initialgains_file
+                                        ])
 
     first_gain_dicts = process_output(first_gain_dicts, wells, i, r_output)
 
     input_gains = (""+r_output.split()[0]+" "+r_output.split()[1]+" "+
                     r_output.split()[2]+" "+r_output.split()[3]+"")
-    r_output = subprocess.check_output(["Rscript", sec_r_script,
-            first_std_dir, first_std_filebases[0],
-            first_initialgains_file, input_gains, sec_std_dir,
-            sec_std_filebases[0], sec_initialgains_file])
+    r_output = subprocess.check_output(["Rscript",
+                                        sec_r_script,
+                                        first_std_dir,
+                                        first_std_filebases[0],
+                                        first_initialgains_file,
+                                        input_gains,
+                                        sec_std_dir,
+                                        sec_std_filebases[0],
+                                        sec_initialgains_file
+                                        ])
     # testing
     print(r_output)
     
