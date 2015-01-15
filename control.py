@@ -7,20 +7,10 @@ import os
 import subprocess
 import re
 import csv
+import time
 
-working_dir = sys.argv[1]
-imaging_dir = sys.argv[2]
-first_std_dir = sys.argv[3]
-sec_std_dir = sys.argv[4]
-first_r_script = working_dir+"gain.r"
-sec_r_script = working_dir+"gain_change_objectives.r"
-first_initialgains_file = sys.argv[5]
-sec_initialgains_file = sys.argv[6]
-
-path_to_fiji = "/opt/Fiji/ImageJ-linux64"
-imagej_macro = working_dir+"do_max_proj_and_calc_histo_arg.ijm"
-
-# Change std_dir to be created from std_well
+# Change std_dir to be created from std_well, 10x, 40x
+# Make different imaging_dir? 10x, 40x etc.
 
 def usage():
     """Usage function to help user start the script"""
@@ -32,8 +22,10 @@ def main(argv):
                                                  'input=',
                                                  'wdir=',
                                                  'standard=',
-                                                 'first=',
-                                                 'second='
+                                                 'firstgain=',
+                                                 'secondgain=',
+                                                 'finwell=',
+                                                 'finfield='
                                                  ])
     if not opts:
         print 'No options supplied'
@@ -52,11 +44,30 @@ def main(argv):
         elif opt in ('--wdir'):
             working_dir = arg
         elif opt in ('--standard'):
-            std_well = arg
-        elif opt in ('--first'):
+            std_well = arg #U00V00
+        elif opt in ('--firstgain'):
             first_initialgains_file = arg
-        elif opt in ('--second'):
+        elif opt in ('--secondgain'):
             sec_initialgains_file = arg
+        elif opt in ('--finwell'):
+            last_well = arg #U00V00
+        elif opt in ('--finfield'):
+            last_field = arg #X00Y00
+
+#working_dir = sys.argv[1]
+#imaging_dir = sys.argv[2]
+#first_std_dir = sys.argv[3]
+#sec_std_dir = sys.argv[4]
+#first_initialgains_file = sys.argv[5]
+#sec_initialgains_file = sys.argv[6]
+#last_well = sys.argv[7] #U00V00
+#last_field = sys.argv[8] #X00Y00
+first_r_script = working_dir+"gain.r"
+sec_r_script = working_dir+"gain_change_objectives.r"
+#sec_std_dir = 
+
+path_to_fiji = "/opt/Fiji/ImageJ-linux64"
+imagej_macro = working_dir+"do_max_proj_and_calc_histo_arg.ijm"
 
 if __name__ =='__main__':
     main(sys.argv[1:])
@@ -74,7 +85,7 @@ def search_files(file_list, rootdir, _match_string):
             file_list.append(os.path.join(root, filename))
     return file_list
 
-def strip_fun(files, filebases, _wells, _match_string):
+def strip_fun(files, filebases, _wells, _fields, _match_string):
     """Remove the end, matching a regex, of filenames and get the file well.
 
     Arguments:
@@ -87,11 +98,11 @@ def strip_fun(files, filebases, _wells, _match_string):
         #print(re.sub('C\d\d.+$', '', f))
         filebases.append(re.sub(_match_string, '', f))
         wellmatch = re.search('U\d\d--V\d\d', f)
-
-        if wellmatch:                      
+        fieldmatch = re.search('X\d\d--Y\d\d', f)
+        if wellmatch & fieldmatch:                      
             #print('found', wellmatch.group())
             _wells.append(wellmatch.group())
-
+            _fields.append(fieldmatch.group())
         else:
             print 'did not find'
     return
@@ -100,25 +111,39 @@ def parent_dir(p):
     """Return parent directory of p"""
     return os.path.abspath(os.path.join(p, os.pardir))
 
-images = []
-images = search_files(images, imaging_dir, "*.tif")
+stage1 = True
 
-well_paths = []
-for image in images:
-    d = parent_dir(parent_dir(image))
-    csv_list = []
-    search_files(csv_list, d, "*.csv")
-    if len(csv_list) is 0:
-        well_paths.append(d)
-well_paths = sorted(list(set(well_paths)))
-
-for well in well_paths:
-    imagej_output = subprocess.check_output([path_to_fiji,
-                                             "--headless",
-                                             "-macro",
-                                             imagej_macro,
-                                             well
-                                             ])
+while stage1:
+    images = []
+    image_bases = []
+    wells = []
+    fields = []
+    images = search_files(images, imaging_dir, "*.tif")
+    strip_fun(images, image_bases, wells, fields, 'C\d\d.+$')
+    well_paths = []
+    for i in range(len(images)):
+        d = parent_dir(parent_dir(images[i]))
+        well = wells[i]
+        field = fields[i]
+        if well == std_well:
+            first_std_dir = d
+        if well == last_well && field == last_field:
+            stage1 = False
+        well_images = []
+        well_images = search_files(well_images, d, "*.tif")
+        csv_list = []
+        csv_list = search_files(csv_list, d, "*.csv")
+        if len(well_images) == 66 & len(csv_list) == 0:
+            well_paths.append(d)
+    well_paths = sorted(list(set(well_paths)))
+    for well in well_paths:
+        imagej_output = subprocess.check_output([path_to_fiji,
+                                                 "--headless",
+                                                 "-macro",
+                                                 imagej_macro,
+                                                 well
+                                                 ])
+    time.sleep(5)
 
 first_files = []
 first_files = search_files(first_files, imaging_dir, "*.csv")
@@ -130,13 +155,14 @@ sec_std_files = search_files(sec_std_files, sec_std_dir, "*.csv")
 
 first_filebases = []
 wells = []
+fields = []
 first_std_filebases = []
 sec_std_filebases = []
 garbage_wells = []
 
-strip_fun(first_files, first_filebases, wells, 'C\d\d.+$')
-strip_fun(first_std_files, first_std_filebases, garbage_wells, 'C\d\d.+$')
-strip_fun(sec_std_files, sec_std_filebases, garbage_wells, 'C\d\d.+$')
+strip_fun(first_files, first_filebases, wells, fields, 'C\d\d.+$')
+strip_fun(first_std_files, first_std_filebases, garbage_wells, fields, 'C\d\d.+$')
+strip_fun(sec_std_files, sec_std_filebases, garbage_wells, fields, 'C\d\d.+$')
 
 first_filebases = sorted(list(set(first_filebases)))
 wells = sorted(list(set(wells)))
