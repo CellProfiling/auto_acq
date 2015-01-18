@@ -2,36 +2,19 @@ import os
 import fnmatch
 import re
 
-class Compartment(object):
-    """A compartment on the plate. Compartments have the following properties:
-
-    Attributes:
-        path: A string representing the path to the compartment.
-    """
-
-    def __init__(self, path):
-        """Return a Compartment object whose path is *path*"""
-        self.path = path
-
-    def get_parent(self):
-        """Return parent directory."""
-        return os.path.abspath(os.path.join(self.path, os.pardir))
+class Directory(Base):
+    """A directory on the plate."""
 
     def get_children(self):
         """Return a list of child directories."""
         return next(os.walk(self.path))[1]
 
-    def get_dir(self):
-        """Return current directory."""
-        return os.path.dirname(self.path)
-
     def get_name(self):
         """Return the id of the current directory."""
-        match = re.search('.\d\d--.\d\d', os.path.dirname(self.path))
-        if match:                      
-            return match.group()
-        else:
-            return None
+
+        path = os.path.normpath(self.path)
+        regex = '.\d\d--.\d\d'
+        return super(Directory, self).get_name(path, regex)
 
     def get_all_files(self, regex):
         """Return a list of all files matching regex, recursively."""
@@ -43,22 +26,20 @@ class Compartment(object):
 
         #self.commands = commands
 
+    def base_type(self):
+        """"Return a string representing the type of object this is."""
+        return 'directory'
+
 from PIL import Image
 from lxml import etree
 
-class My_image(object):
+class My_image(Base):
     """An image.
     Use PIL Image class to open image.
     Search xml data using lxml.
-
-    Attributes:
-        path: A string representing the path to the image.
     """
 
     namespace = {'ns':'http://www.openmicroscopy.org/Schemas/OME/2008-09'}
-
-    def __init__(self, path):
-        self.path
 
     def serial_no(self):
         """Open an image and find the serial number of the objective that
@@ -82,9 +63,42 @@ class My_image(object):
             regex = 'Z\d\d'
         if idtag == 'channel':
             regex = 'C\d\d'
-        match = re.search(regex, os.path.basename(self.path))
+
+        path = self.path
+        return super(My_image, self).get_name(path, regex)
+
+    def base_type(self):
+        """"Return a string representing the type of object this is."""
+        return 'image'
+
+import abc
+class Base(object):
+    """Base class
+
+    Attributes:
+        path: A string representing the path to the object.
+    """
+
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, path):
+        self.path
+
+    def get_dir(self):
+        """Return current directory."""
+        return os.path.dirname(self.path)
+
+    @abc.abstractmethod
+    def get_name(self, path, regex):
+        """Get name of idtag of image. idtag can be either
+        well, job, field, slice or channel."""
+        match = re.search(regex, os.path.basename(path))
         if match:                      
             return match.group()
         else:
             return None
-        
+
+    @abc.abstractmethod
+    def base_type(self):
+        """"Return a string representing the type of object this is."""
+        pass
