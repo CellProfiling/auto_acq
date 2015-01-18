@@ -2,9 +2,8 @@ import socket
 import sys
 import time
 
-message_path = sys.argv[1]
+message = sys.argv[1]
 test_string = sys.argv[2]
-#test_string = "scanfinished"
 
 def recv_timeout(_socket, timeout, _test):
     # make socket non blocking
@@ -16,7 +15,7 @@ def recv_timeout(_socket, timeout, _test):
      
     # start time
     begin=time.time()
-    while _test not in data:
+    while _test not in data or 'scanfinished' not in data:
         # if data exist, then break after timeout
         if total_data and time.time()-begin > timeout:
             break
@@ -71,18 +70,16 @@ except socket.error:
 try:
     
     # Send data
-#    message = 'This is the message.'
-    with open(message_path, 'r') as f:
-        # Make compatible with Windows line breaks
-        for line in f:
-            if line[-2:]=="\r\n":
-                message = line
-            if line[-1:]=="\n":
-                message = line[:-1] + "\r\n"
-            else:
-                message = line + "\r\n"
-            print 'sending "%s"' % message
-            sock.send(message)
+    # Make compatible with Windows line breaks
+    for line in message.splitlines():
+        if line[-2:]=='\r\n':
+            line = line
+        if line[-1:]=='\n':
+            line = line[:-1] + '\r\n'
+        else:
+            line = line + '\r\n'
+        print 'sending "%s"' % line
+        sock.send(line)
     
 except socket.error:
     #Send failed
