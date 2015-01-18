@@ -104,6 +104,7 @@ def strip_fun(files, filebases, _wells, _fields, _match_string):
     files -- list of files to process
     filebases -- list of processed files
     _wells -- list of wells from the processed files
+    _fields -- list of fields from the processed files
     _match_string -- regex to match
     """
     for f in files:
@@ -111,7 +112,7 @@ def strip_fun(files, filebases, _wells, _fields, _match_string):
         filebases.append(re.sub(_match_string, '', f))
         wellmatch = re.search('U\d\d--V\d\d', f)
         fieldmatch = re.search('X\d\d--Y\d\d', f)
-        if wellmatch & fieldmatch:                      
+        if wellmatch and fieldmatch:                      
             #print('found', wellmatch.group())
             _wells.append(wellmatch.group())
             _fields.append(fieldmatch.group())
@@ -139,6 +140,14 @@ def write_csv(path, dict_list):
         w.writeheader()
         w.writerows(dict_list)
 
+def call_server(command_str, end_str, _w_dir):
+    srv_output = subprocess.check_output(['python',
+                                          _w_dir+'socket_client.py',
+                                          command_str,
+                                          end_str,
+                                          ])
+    return srv_output
+
 first_r_script = working_dir+'gain.r'
 sec_r_script = working_dir+'gain_change_objectives.r'
 path_to_fiji = '/opt/Fiji/ImageJ-linux64'
@@ -156,17 +165,15 @@ while stage1:
     well_paths = []
     for i in range(len(images)):
         d = parent_dir(parent_dir(images[i]))
-        well = wells[i]
-        field = fields[i]
         im = Image.open(images[i])
         root = etree.fromstring(im.tag[270])
         obj_serial_no = root.xpath('//ns:Objective/@SerialNumber',
                                    namespaces=namespace)[0]
-        if well == std_well & obj_serial_no == '11506505':
+        if wells[i] == std_well and obj_serial_no == '11506505':
             first_std_dir = d
-        elif well == std_well:
+        elif wells[i] == std_well:
             sec_std_dir = d
-        if well == last_well & field == last_field:
+        if wells[i] == last_well and fields[i] == last_field:
             stage1 = False
         well_images = []
         well_images = search_files(well_images, d, '*.tif')
