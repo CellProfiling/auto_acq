@@ -3,6 +3,7 @@ import fnmatch
 import re
 from PIL import Image
 from lxml import etree
+from unicodedata import normalize
 import abc
 class Base(object):
     """Base class
@@ -82,8 +83,8 @@ class My_image(Base):
         """Open an image and find the serial number of the objective that
         acquired the image"""
         im = Image.open(self.path)
-        serial = etree.tostring(im.tag[270], encoding='UTF-8')
-        root = etree.fromstring(serial)
+        ascii = normalize('NFKD', im.tag[270]).encode('ascii','ignore')
+        root = etree.fromstring(ascii)
         return root.xpath('//ns:Objective/@SerialNumber',
                                    namespaces=namespace)[0]
 
