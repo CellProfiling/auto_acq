@@ -141,12 +141,21 @@ def write_csv(path, dict_list):
         w.writerows(dict_list)
 
 def call_server(command_str, end_str, _w_dir):
-    srv_output = subprocess.check_output(['python',
-                                          _w_dir+'socket_client.py',
-                                          command_str,
-                                          end_str,
-                                          ])
-    return srv_output
+    output = subprocess.check_output(['python',
+                                      _w_dir+'socket_client.py',
+                                      command_str,
+                                      end_str,
+                                      ])
+    return output
+
+def call_imagej(path_to_fiji, imagej_macro, well):
+    output = subprocess.check_output([path_to_fiji,
+                                      '--headless',
+                                      '-macro',
+                                      imagej_macro,
+                                      well
+                                      ])
+    return output
 
 first_r_script = working_dir+'gain.r'
 sec_r_script = working_dir+'gain_change_objectives.r'
@@ -183,12 +192,7 @@ while stage1:
             well_paths.append(d)
     well_paths = sorted(list(set(well_paths)))
     for well in well_paths:
-        imagej_output = subprocess.check_output([path_to_fiji,
-                                                 '--headless',
-                                                 '-macro',
-                                                 imagej_macro,
-                                                 well
-                                                 ])
+        imagej_output = call_imagej(path_to_fiji, imagej_macro, well)
     time.sleep(5)
 
 first_files = []
