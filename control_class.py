@@ -32,6 +32,10 @@ class Base(object):
             print('No match')
             return None
 
+    def cut_path(self, regex):
+        """Remove part of path name matching regex, and return result."""
+        return re.sub(regex, '', self.path)
+
     @abc.abstractmethod
     def base_type(self):
         """"Return a string representing the type of object this is."""
@@ -39,9 +43,6 @@ class Base(object):
 
 class Directory(Base):
     """A directory on the plate."""
-
-    #def __init__(self, path):
-    #    super(Directory, self).__init__(path)
 
     def get_children(self):
         """Return a list of child directories."""
@@ -68,14 +69,11 @@ class Directory(Base):
         """"Return a string representing the type of object this is."""
         return 'directory'
 
-class My_image(Base):
+class MyImage(Base):
     """An image.
     Use PIL Image class to open image.
     Search xml data using lxml.
     """
-
-    #def __init__(self, path):
-    #    super(My_image, self).__init__(path)
 
     namespace = {'ns':'http://www.openmicroscopy.org/Schemas/OME/2008-09'}
 
