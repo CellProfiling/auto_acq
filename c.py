@@ -118,6 +118,12 @@ def write_csv(path, dict_list):
         w.writeheader()
         w.writerows(dict_list)
 
+def create_dict(input_list, key, value):
+    output = {}
+    for i in input_list:
+        output[i[key]] = i[value]
+    return output
+
 first_r_script = working_dir+'gain.r'
 sec_r_script = working_dir+'gain_change_objectives.r'
 path_to_fiji = '/opt/Fiji/ImageJ-linux64'
@@ -210,3 +216,9 @@ for i in range(len(filebases)):
 
 write_csv(working_dir+'first_output_gains.csv', first_gain_dicts)
 write_csv(working_dir+'sec_output_gains.csv', sec_gain_dicts)
+
+# Sort gain data into one dict for each channel
+green = create_dict(gains, "well", "green")
+blue = create_dict(gains, "well", "blue")
+yellow = create_dict(gains, "well", "yellow")
+red = create_dict(gains, "well", "red")
