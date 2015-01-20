@@ -140,11 +140,11 @@ def write_csv(path, dict_list):
         w.writeheader()
         w.writerows(dict_list)
 
-def call_server(command_str, end_str, _w_dir):
+def call_server(_command, _end_str, _w_dir):
     output = subprocess.check_output(['python',
                                       _w_dir+'socket_client.py',
-                                      command_str,
-                                      end_str,
+                                      _command,
+                                      _end_str,
                                       ])
     return output
 
@@ -162,7 +162,19 @@ sec_r_script = working_dir+'gain_change_objectives.r'
 path_to_fiji = '/opt/Fiji/ImageJ-linux64'
 imagej_macro = working_dir+'do_max_proj_and_calc_histo_arg.ijm'
 stage1 = True
+stage2 = True
 namespace = {'ns':'http://www.openmicroscopy.org/Schemas/OME/2008-09'}
+std_wellx = str(int(re.sub(r'\D', '', re.sub('--V\d\d', '', std_well)))+1)
+std_welly = str(int(re.sub(r'\D', '', re.sub('U\d\d--', '', std_well)))+1)
+# Check this command and change to make it work
+stage2_com = ('/cli:1 /app:matrix /cmd:add /tar:camlist '
+              '/exp:Job17 /ext:none /slide:0 /wellx:'+std_wellx+' /welly:'
+              +std_welly+' /fieldx:1 /fieldy:1 /dxpos:0 /dypos:0\n'
+              '/cli:1 /app:matrix /cmd:add /tar:camlist '
+              '/exp:Job17 /ext:none /slide:0 /wellx:'+std_wellx+' /welly:'
+              +std_welly+' /fieldx:2 /fieldy:2 /dxpos:0 /dypos:0'
+              )
+stage2_end = 'X01--Y01'
 
 while stage1:
     images = []
@@ -180,6 +192,9 @@ while stage1:
                                    namespaces=namespace)[0]
         if wells[i] == std_well and obj_serial_no == '11506505':
             first_std_dir = d
+            if stage2:
+                srv_output = call_server(stage2_com, stage2_end, working_dir)
+                stage2 = False
         elif wells[i] == std_well:
             sec_std_dir = d
         if wells[i] == last_well and fields[i] == last_field:
@@ -211,7 +226,12 @@ sec_std_filebases = []
 garbage_wells = []
 
 strip_fun(first_files, first_filebases, wells, fields, 'C\d\d.+$')
-strip_fun(first_std_files, first_std_filebases, garbage_wells, fields, 'C\d\d.+$')
+strip_fun(first_std_files,
+          first_std_filebases,
+          garbage_wells,
+          fields,
+          'C\d\d.+$'
+          )
 strip_fun(sec_std_files, sec_std_filebases, garbage_wells, fields, 'C\d\d.+$')
 
 first_filebases = sorted(list(set(first_filebases)))
