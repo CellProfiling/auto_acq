@@ -4,6 +4,9 @@ import getopt
 import subprocess
 import re
 import time
+from control_class import Base
+from control_class import Directory
+from control_class import MyImage
 
 def usage():
     """Usage function to help user start the script"""
@@ -66,8 +69,8 @@ def main(argv):
 
 #working_dir = sys.argv[1]
 #imaging_dir = sys.argv[2]
-#first_std_dir = sys.argv[3]
-#sec_std_dir = sys.argv[4]
+#first_std_path = sys.argv[3]
+#sec_std_path = sys.argv[4]
 #first_initialgains_file = sys.argv[5]
 #sec_initialgains_file = sys.argv[6]
 #last_well = sys.argv[7] #U00V00
@@ -75,6 +78,45 @@ def main(argv):
 
 if __name__ =='__main__':
     main(sys.argv[1:])
+
+def call_server(_command, _end_str, _w_dir):
+    output = subprocess.check_output(['python',
+                                      _w_dir+'socket_client.py',
+                                      _command,
+                                      _end_str,
+                                      ])
+    return output
+
+def call_imagej(path_to_fiji, imagej_macro, im_dir):
+    output = subprocess.check_output([path_to_fiji,
+                                      '--headless',
+                                      '-macro',
+                                      imagej_macro,
+                                      im_dir
+                                      ])
+    return output
+
+def cut_path(files, regex):
+    cut_paths = []
+    for f in files:
+        cut_paths.append(re.sub(regex, '', f))
+    return cut_paths
+
+def process_output(dict_list, _well, output):
+    dict_list.append({'well': _well,
+                      'green': output.split()[0],
+                      'blue': output.split()[1],
+                      'yellow': output.split()[2],
+                      'red': output.split()[3]
+                      })
+    return _dict_list
+
+def write_csv(path, dict_list):
+    with open(path, 'wb') as f:
+        keys = ['well', 'green', 'blue', 'yellow', 'red']
+        w = csv.DictWriter(f, keys)
+        w.writeheader()
+        w.writerows(dict_list)
 
 first_r_script = working_dir+'gain.r'
 sec_r_script = working_dir+'gain_change_objectives.r'
@@ -93,6 +135,78 @@ stage2_com = ('/cli:1 /app:matrix /cmd:add /tar:camlist '
               +std_welly+' /fieldx:2 /fieldy:2 /dxpos:0 /dypos:0'
               )
 stage2_end = 'X01--Y01'
-
+# Check serial of 10x objective
+im_dir = Directory(imaging_dir)
+fin_wells = []
 while stage1:
-    
+    im_paths = im_dir.get_all_files('*.tif')
+    fin_well_paths = []
+    for im_path in im_paths:
+        image = MyImage(im_path)
+        obj_serial = image.serial_no()
+        field = Directory(image.get_dir())
+        well_path = field.get_dir()
+        well = Directory(well_path)
+        if well.get_name() == std_well and obj_serial == '11506505':
+            first_std_path = well_path
+            if stage2:
+                srv_output = call_server(stage2_com, stage2_end, working_dir)
+                stage2 = False
+        elif well.get_name() == std_well:
+            sec_std_path = well_path
+        if well.get_name() == last_well and field.get_name() == last_field:
+            stage1 = False
+        if (len(well.get_all_files('*.tif')) == 66 &
+            len(well.get_all_files('*.csv')) == 0):
+            fin_well_paths.append(well_path)
+            fin_wells.append(well.get_name())
+    fin_well_paths = sorted(list(set(fin_well_paths)))
+    for well_path in fin_well_paths:
+        imagej_output = call_imagej(path_to_fiji, imagej_macro, well_path)
+    time.sleep(5)
+
+csv_paths = im_dir.get_all_files('*.csv')
+first_std_dir = Directory(first_std_path)
+sec_std_dir = Directory(sec_std_path)
+first_std_csv_paths = first_std_dir.get_all_files('*.csv')
+sec_std_csv_paths = sec_std_dir.get_all_files('*.csv')
+filebases = cut_path(csv_paths, 'C\d\d.+$')
+first_std_fbs = cut_path(first_std_csv_paths, 'C\d\d.+$')
+sec_std_fbs = cut_path(sec_std_csv_paths, 'C\d\d.+$')
+filebases = sorted(list(set(filebases)))
+first_std_fbs = sorted(list(set(first_std_fbs)))
+sec_std_fbs = sorted(list(set(sec_std_fbs)))
+fin_wells = sorted(list(set(fin_wells)))
+first_gain_dicts = []
+sec_gain_dicts = []
+
+# for all wells run R script
+for i in range(len(filebases)):
+    well = fin_wells[i]
+    print(first_filebases[i])
+    print(well)
+    r_output = subprocess.check_output(['Rscript',
+                                        first_r_script,
+                                        imaging_dir,
+                                        filebases[i],
+                                        first_initialgains_file
+                                        ])
+    first_gain_dicts = process_output(first_gain_dicts, well, r_output)
+    input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
+                    r_output.split()[2]+' '+r_output.split()[3]+'')
+    r_output = subprocess.check_output(['Rscript',
+                                        sec_r_script,
+                                        first_std_path,
+                                        first_std_fbs[0],
+                                        first_initialgains_file,
+                                        input_gains,
+                                        sec_std_path,
+                                        sec_std_fbs[0],
+                                        sec_initialgains_file
+                                        ])
+    # testing
+    print(r_output)
+    sec_gain_dicts = process_output(sec_gain_dicts, well, r_output)
+
+write_csv(working_dir+'first_output_gains.csv', first_gain_dicts)
+write_csv(working_dir+'sec_output_gains.csv', sec_gain_dicts)

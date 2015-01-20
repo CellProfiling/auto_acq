@@ -124,14 +124,14 @@ def parent_dir(p):
     """Return parent directory of p"""
     return os.path.abspath(os.path.join(p, os.pardir))
     
-def process_output(dict_list, well_list, i, output):
-    dict_list.append({'well': well_list[i],
+def process_output(dict_list, _well, output):
+    dict_list.append({'well': _well,
                       'green': output.split()[0],
                       'blue': output.split()[1],
                       'yellow': output.split()[2],
                       'red': output.split()[3]
                       })
-    return dict_list
+    return _dict_list
 
 def write_csv(path, dict_list):
     with open(path, 'wb') as f:
@@ -148,12 +148,12 @@ def call_server(_command, _end_str, _w_dir):
                                       ])
     return output
 
-def call_imagej(path_to_fiji, imagej_macro, well):
+def call_imagej(path_to_fiji, imagej_macro, im_dir):
     output = subprocess.check_output([path_to_fiji,
                                       '--headless',
                                       '-macro',
                                       imagej_macro,
-                                      well
+                                      im_dir
                                       ])
     return output
 
@@ -244,17 +244,16 @@ sec_gain_dicts = []
 
 # for all wells run R script
 for i in range(len(first_filebases)):
+    well = wells[i]
     print(first_filebases[i])
-    print(wells[i])
+    print(well)
     r_output = subprocess.check_output(['Rscript',
                                         first_r_script,
                                         imaging_dir,
                                         first_filebases[i],
                                         first_initialgains_file
                                         ])
-
-    first_gain_dicts = process_output(first_gain_dicts, wells, i, r_output)
-
+    first_gain_dicts = process_output(first_gain_dicts, well, r_output)
     input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
                     r_output.split()[2]+' '+r_output.split()[3]+'')
     r_output = subprocess.check_output(['Rscript',
@@ -269,8 +268,7 @@ for i in range(len(first_filebases)):
                                         ])
     # testing
     print(r_output)
-    
-    sec_gain_dicts = process_output(sec_gain_dicts, wells, i, r_output)
+    sec_gain_dicts = process_output(sec_gain_dicts, well, r_output)
 
 write_csv(working_dir+'first_output_gains.csv', first_gain_dicts)
 write_csv(working_dir+'sec_output_gains.csv', sec_gain_dicts)

@@ -84,7 +84,7 @@ class MyImage(Base):
         ascii = normalize('NFKD', im.tag[270]).encode('ascii','ignore')
         root = etree.fromstring(ascii)
         return root.xpath('//ns:Objective/@SerialNumber',
-                                   namespaces=namespace)[0]
+                                   namespaces=self.namespace)[0]
 
     def get_name(self, idtag):
         """Get name of idtag of image. idtag can be either
