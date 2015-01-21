@@ -79,6 +79,28 @@ def main(argv):
 if __name__ =='__main__':
     main(sys.argv[1:])
 
+def camstart_com_gen(_afjob, _afr, _afs):
+    _com = ('/cli:1 /app:matrix /cmd:startcamscan /runtime:36000'
+            ' /repeattime:36000 /afj:'+_afjob+' /afr:'+_afr+' /afs:'+_afs)
+    return _com
+
+def g_com_gen(_job, _pmt, _gain):
+    _com = ('/cli:1 /app:matrix /cmd:adjust /tar:pmt /num:'+_pmt+
+            ' /exp:'+_job+' /prop:gain /value:'+_gain
+            )
+    return _com
+
+def c_com_gen(_job, _well, _field):
+    wellx = str(int(re.sub(r'\D', '', re.sub('--V\d\d', '', _well)))+1)
+    welly = str(int(re.sub(r'\D', '', re.sub('U\d\d--', '', _well)))+1)
+    fieldx = str(int(re.sub(r'\D', '', re.sub('--V\d\d', '', _field)))+1)
+    fieldy = str(int(re.sub(r'\D', '', re.sub('U\d\d--', '', _field)))+1)
+    _com = ('/cli:1 /app:matrix /cmd:add /tar:camlist /exp:'+_job+
+           ' /ext:none /slide:0 /wellx:'+_wellx+' /welly:'+_welly+
+           ' /fieldx:'+fieldx+' /fieldy:'+fieldy+' /dxpos:0 /dypos:0'
+           )
+    return _com
+
 def call_server(_command, _end_str, _w_dir):
     output = subprocess.check_output(['python',
                                       _w_dir+'socket_client.py',
@@ -119,28 +141,63 @@ def write_csv(path, dict_list):
         w.writerows(dict_list)
 
 def create_dict(input_list, key, value):
+    """Creat a dict from a list of dicts"""
     output = {}
     for i in input_list:
         output[i[key]] = i[value]
+    return output
+
+def round_values(input_dict):
+    """Round values taken from a dict. Return a list.
+    Replace the values in the old dict as well"""
+    output = []
+    for k, v in input_dict.iteritems():
+        v = int(round(int(v), -1))
+        input_dict[k] = v
+        output.append(v)
     return output
 
 first_r_script = working_dir+'gain.r'
 sec_r_script = working_dir+'gain_change_objectives.r'
 path_to_fiji = '/opt/Fiji/ImageJ-linux64'
 imagej_macro = working_dir+'do_max_proj_and_calc_histo_arg.ijm'
+# Check job names
+10x_af_job = 'Job1'
+40x_af_job = 'Job2'
+40_afr = '105'
+40x_afs = '106'
+63x_af_job = 'Job3'
+10x_g_job = 'Job4'
+40x_g_job = 'Job5'
+63x_g_job = 'Job6'
+40x_job1 = 'Job7'
+40x_job2 = 'Job8'
+40x_job3 = 'Job9'
+40x_pattern = 'Pattern1'
+63x_job1 = 'Job10'
+63x_job2 = 'Job11'
+63x_job3 = 'Job12'
+63x_pattern1 = 'Pattern2'
+63x_job4 = 'Job13'
+63x_job5 = 'Job14'
+63x_job6 = 'Job15'
+63x_pattern2 = 'Pattern3'
+63x_job7 = 'Job16'
+63x_job8 = 'Job17'
+63x_job9 = 'Job18'
+63x_pattern3 = 'Pattern4'
+63x_job10 = 'Job19'
+63x_job11 = 'Job20'
+63x_job12 = 'Job21'
+63x_pattern4 = 'Pattern5'
 stage1 = True
 stage2 = True
-std_wellx = str(int(re.sub(r'\D', '', re.sub('--V\d\d', '', std_well)))+1)
-std_welly = str(int(re.sub(r'\D', '', re.sub('U\d\d--', '', std_well)))+1)
 # Check this command and change to make it work
-stage2_com = ('/cli:1 /app:matrix /cmd:add /tar:camlist '
-              '/exp:Job17 /ext:none /slide:0 /wellx:'+std_wellx+' /welly:'
-              +std_welly+' /fieldx:1 /fieldy:1 /dxpos:0 /dypos:0\n'
-              '/cli:1 /app:matrix /cmd:add /tar:camlist '
-              '/exp:Job17 /ext:none /slide:0 /wellx:'+std_wellx+' /welly:'
-              +std_welly+' /fieldx:2 /fieldy:2 /dxpos:0 /dypos:0'
-              )
+stage2_com = com_gen(40x_g_job, std_well, 'X00--Y00')
+stage2_com = stage2_com +'\n'+ com_gen(40x_g_job, std_well, 'X01--Y01')
 stage2_end = 'X01--Y01'
+start_com = '/cli:1 /app:matrix /cmd:startscan'
+stop_com = '/cli:1 /app:matrix /cmd:stopscan'
 # Check serial of 10x objective
 im_dir = Directory(imaging_dir)
 fin_wells = []
@@ -156,7 +213,11 @@ while stage1:
         if well.get_name() == std_well and obj_serial == '11506505':
             first_std_path = well_path
             if stage2:
+                # Add 40x gain scan in std well to CAM list.
                 srv_output = call_server(stage2_com, stage2_end, working_dir)
+                camstart_com = camstart_com_gen(40x_af_job, 40x_afr, 40x_afs)
+                # Start CAM scan.
+                srv_output = call_server(camstart_com, stage2_end, working_dir)
                 stage2 = False
         elif well.get_name() == std_well:
             sec_std_path = well_path
@@ -166,7 +227,7 @@ while stage1:
             len(well.get_all_files('*.csv')) == 0):
             fin_well_paths.append(well_path)
             fin_wells.append(well.get_name())
-    fin_well_paths = sorted(list(set(fin_well_paths)))
+    fin_well_paths = sorted(set(fin_well_paths))
     for well_path in fin_well_paths:
         imagej_output = call_imagej(path_to_fiji, imagej_macro, well_path)
     time.sleep(5)
@@ -179,10 +240,10 @@ sec_std_csv_paths = sec_std_dir.get_all_files('*.csv')
 filebases = cut_path(csv_paths, 'C\d\d.+$')
 first_std_fbs = cut_path(first_std_csv_paths, 'C\d\d.+$')
 sec_std_fbs = cut_path(sec_std_csv_paths, 'C\d\d.+$')
-filebases = sorted(list(set(filebases)))
-first_std_fbs = sorted(list(set(first_std_fbs)))
-sec_std_fbs = sorted(list(set(sec_std_fbs)))
-fin_wells = sorted(list(set(fin_wells)))
+filebases = sorted(set(filebases))
+first_std_fbs = sorted(set(first_std_fbs))
+sec_std_fbs = sorted(set(sec_std_fbs))
+fin_wells = sorted(set(fin_wells))
 first_gain_dicts = []
 sec_gain_dicts = []
 
@@ -218,7 +279,88 @@ write_csv(working_dir+'first_output_gains.csv', first_gain_dicts)
 write_csv(working_dir+'sec_output_gains.csv', sec_gain_dicts)
 
 # Sort gain data into one dict for each channel
-green = create_dict(gains, "well", "green")
-blue = create_dict(gains, "well", "blue")
-yellow = create_dict(gains, "well", "yellow")
-red = create_dict(gains, "well", "red")
+green = create_dict(sec_gain_dicts, "well", "green")
+blue = create_dict(sec_gain_dicts, "well", "blue")
+yellow = create_dict(sec_gain_dicts, "well", "yellow")
+red = create_dict(sec_gain_dicts, "well", "red")
+
+# Round gain values to multiples of 10
+green_list = round_values(green)
+blue_list = round_values(blue)
+yellow_list = round_values(yellow)
+red_list = round_values(red)
+
+# Find the unique set of gain values per channel for whole plate
+green_unique = sorted(set(green_list))
+blue_unique = sorted(set(blue_list))
+yellow_unique = sorted(set(yellow_list))
+red_unique = sorted(set(red_list))
+stage3_com_list = []
+stage3_end_list = []
+green_g_com_list = []
+blue_g_com_list = []
+yellow_g_com_list = []
+red_g_com_list = []
+while green:
+    for green_val in green_unique:
+        blue_val = 0
+        gain_com = ''
+        stage3_com = ''
+        stage3_end = ''
+        for k, v in green.iteritems():
+            if v == green_val:
+                if blue_val == 0:
+                    blue_val = blue[k]
+                    yellow_val = yellow[k]
+                    red_val = red[k]
+                if (blue_val == blue[k] &
+                      yellow_val == yellow[k] &
+                      red_val == red[k]):
+                    # Set gain in the four channels.
+                    green_g_com = g_com_gen(40x_job1, '1', str(green_val))
+                    blue_g_com = g_com_gen(40x_job2, '1', str(blue_val))
+                    yellow_g_com = g_com_gen(40x_job2, '2', str(yellow_val))
+                    red_g_com = g_com_gen(40x_job3, '2', str(red_val))
+                    for i in range(2):
+                        for j in range(2):
+                            # Add 40x job with set gain in wells to CAM list.
+                            stage3_com = (stage3_com+
+                                          c_com_gen(40x_pattern,
+                                                  k,
+                                                  'X0'+str(j)+'--Y0'+str(i))+
+                                          '\n')
+                    stage3_end = k+'.+X01--Y01'
+                    #testing
+                    print(k+
+                          ' green: '+str(green_val)+
+                          ' blue: '+str(blue_val)+
+                          ' yellow: '+str(yellow_val)+
+                          ' red: '+str(red_val))
+                    del green[k]
+                    del blue[k]
+                    del yellow[k]
+                    del red[k]
+        stage3_com = stage3_com[:stage3_com.rfind('\n')]
+        green_g_com_list.append(green_g_com)
+        blue_g_com_list.append(blue_g_com)
+        yellow_g_com_list.append(yellow_g_com)
+        red_g_com_list.append(red_g_com)
+        stage3_com_list.append(stage3_com)
+        stage3_end_list.append(stage3_end)
+
+camstart_com = camstart_com_gen(40x_af_job, 40x_afr, 40x_afs)
+for i,com in enumerate(stage3_com_list):
+    # Send gain change command to server in the four channels.
+    call_server(green_g_com_list[i], green_g_com_list[i], working_dir)
+    call_server(blue_g_com_list[i], blue_g_com_list[i], working_dir)
+    call_server(yellow_g_com_list[i], yellow_g_com_list[i], working_dir)
+    call_server(red_g_com_list[i], red_g_com_list[i], working_dir)
+    # Start scan.
+    call_server(start_com, start_com, working_dir)
+    # Send CAM list to server.
+    call_server(com, stage3_end_list[i], working_dir)
+    # Start CAM scan.
+    call_server(camstart_com, stage3_end_list[i], working_dir)
+    #stop scan
+    call_server(stop_com, stop_com, working_dir)
+    time.sleep(3)
