@@ -95,22 +95,23 @@ for green_val in green_unique:
     block_name = etree.XSLT.strparam('job'+str(new_blockid))
     
     lrp_doc = t_copy_job(lrp_doc, BLOCKID=str(blockid),
-                NEWBLOCKID=str(new_blockid), ELEMENTID=str(elementid))
+                         NEWBLOCKID=str(new_blockid), ELEMENTID=str(elementid))
     lrp_doc = t_copy_job(lrp_doc, NEWBLOCKID=str(new_blockid),
-                BLOCKNAME=block_name)
+                         BLOCKNAME=block_name)
     for j in range(4): # master + 3 sequences
-        us_name = etree.XSLT.strparam('S'+str(us_name_no+j+2)) # add 2 for new job
+        # add 2 for new job
+        us_name = etree.XSLT.strparam('S'+str(us_name_no+j+2))
         lrp_doc = t_copy_job(lrp_doc, NEWBLOCKID=str(new_blockid),
-                    SEQ=str(j+1), USNAME=us_name)
+                             SEQ=str(j+1), USNAME=us_name)
 
     lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'green'",
-                GAIN=str(green_val))
+                         GAIN=str(green_val))
     lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'blue'",
-                GAIN=str(blue_median))
+                         GAIN=str(blue_median))
     lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'yellow'",
-                GAIN=str(yellow_median))
+                         GAIN=str(yellow_median))
     lrp_doc = t_set_gain(lrp_doc, BLOCKID=str(new_blockid), CHANNEL="'red'",
-                GAIN=str(red_median))
+                         GAIN=str(red_median))
     
     for k, v in green.iteritems():
         if v == green_val:
@@ -120,17 +121,19 @@ for green_val in green_unique:
             for i in range(4): # disable 4x4 fields (all)
                 for j in range(4):
                     xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly,
-                            FIELDX=str(j+1), FIELDY=str(i+1), ENABLE="'false'",
-                            JOBID=str(new_blockid), JOBNAME=block_name, DRIFT="'true'")
+                                       FIELDX=str(j+1), FIELDY=str(i+1),
+                                       ENABLE="'false'", JOBID=str(new_blockid),
+                                       JOBNAME=block_name, DRIFT="'true'")
             for i in range(2): # 2x2 fields, (2,2)(2,3)(3,2)(3,3)
                 for j in range(2):
                     xml_doc = t_enable(xml_doc, WELLX=wellx, WELLY=welly,
-                            FIELDX=str(j+2), FIELDY=str(i+2), ENABLE="'true'",
-                            JOBID=str(new_blockid), JOBNAME=block_name, DRIFT="'true'")
+                                       FIELDX=str(j+2), FIELDY=str(i+2),
+                                       ENABLE="'true'", JOBID=str(new_blockid),
+                                       JOBNAME=block_name, DRIFT="'true'")
 
 # Enable U00--V00--X00--Y00, for start position calibration
 xml_doc = t_enable(xml_doc, WELLX=str(1), WELLY=str(1), FIELDX=str(1),
-            FIELDY=str(1), ENABLE="'true'", DRIFT="'true'")
+                   FIELDY=str(1), ENABLE="'true'", DRIFT="'true'")
 
 # Save the xml to file
 lrp_doc.write(lrp_input[0:-4]+'_new.lrp', method="xml", pretty_print=False)
