@@ -4,6 +4,7 @@ import subprocess
 import re
 import time
 from itertools import  combinations
+from itertools import groupby
 from collections import OrderedDict
 from control_class import Base
 from control_class import Directory
@@ -337,9 +338,17 @@ blue_g_com_list = []
 yellow_g_com_list = []
 red_g_com_list = []
 odd_even = 0
-well_dict = OrderedDict()
+well_dict = {}
 if stage3:
     # Fix this: The combine operation does not work atm.
+    # Test this method
+    green = OrderedDict(sorted(green.items(), key=lambda t: t[1]))
+    groups = []
+    uniquevals = []
+    for val, group in groupby(green, lambda x: green[x]):
+    groups.append(list(group))      # Store group iterator as a list
+    uniquevals.append(val)
+    print(val)
     for k1, k2 in combinations(green, 2):
         if (green[k1] == green[k2] & blue[k1] == blue[k2] &
             yellow[k1] == yellow[k2] & red[k1] == red[k2]):
@@ -397,7 +406,7 @@ if stage4:
         welly = get_wfy(well)
         well_no = 8*(int(wellx)-1)+int(welly)
         well_dict[well_no] = well
-    well_dict = well_dict(sorted(d.items(), key=lambda t: t[0]))
+    well_dict = OrderedDict(sorted(well_dict.items(), key=lambda t: t[0]))
     for well_no, well in well_dict.iteritems():
     # Check if well no 1-4 or 5-8 etc.
         if round((float(well_no)+1)/4) % 2 != odd_even:
