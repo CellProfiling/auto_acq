@@ -18,13 +18,12 @@ class Base(object):
         self.path = path
 
     def get_dir(self):
-        """Return current directory."""
+        """Return parent directory."""
         return os.path.dirname(self.path)
 
     @abc.abstractmethod
     def get_name(self, path, regex):
-        """Get name of idtag of image. idtag can be either
-        well, job, field, slice or channel."""
+        """Return the name of the object, matching regex."""
         match = re.search(regex, os.path.basename(path))
         if match:                      
             return match.group()
@@ -48,11 +47,9 @@ class Directory(Base):
         """Return a list of child directories."""
         return next(os.walk(self.path))[1]
 
-    def get_name(self):
-        """Return the id of the current directory."""
-
+    def get_name(self, regex):
+        """Return the name of the current directory, matching regex."""
         path = os.path.normpath(self.path)
-        regex = '.\d\d--.\d\d'
         return super(Directory, self).get_name(path, regex)
 
     def get_all_files(self, regex):
@@ -69,9 +66,9 @@ class Directory(Base):
         """"Return a string representing the type of object this is."""
         return 'directory'
 
-class MyImage(Base):
-    """An image.
-    Use PIL Image class to open image.
+class File(Base):
+    """A file.
+    If the file is an image, use PIL Image class to open the image.
     Search xml data using lxml.
     """
 
@@ -86,24 +83,11 @@ class MyImage(Base):
         return root.xpath('//ns:Objective/@SerialNumber',
                                    namespaces=self.namespace)[0]
 
-    def get_name(self, idtag):
-        """Get name of idtag of image. idtag can be either
-        well, job, field, slice or channel."""
-
-        if idtag == 'well':
-            regex = 'U\d\d--V\d\d'
-        if idtag == 'job':
-            regex = 'J\d+'
-        if idtag == 'field':
-            regex = 'X\d\d--Y\d\d'
-        if idtag == 'slice':
-            regex = 'Z\d\d'
-        if idtag == 'channel':
-            regex = 'C\d\d'
-
+    def get_name(self, regex):
+        """Return the name of the file, matching regex."""
         path = self.path
         return super(My_image, self).get_name(path, regex)
 
     def base_type(self):
         """"Return a string representing the type of object this is."""
-        return 'image'
+        return 'file'
