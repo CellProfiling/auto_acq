@@ -6,6 +6,7 @@ import time
 from itertools import  combinations
 from itertools import groupby
 from collections import OrderedDict
+from collections import defaultdict
 from control_class import Base
 from control_class import Directory
 from control_class import File
@@ -34,7 +35,7 @@ def main(argv):
                                                  'secondgain=',
                                                  'finwell=',
                                                  'finfield='
-                                                 '63x='
+                                                 'coords='
                                                  ])
     except getopt.GetoptError,e:
         print e
@@ -48,7 +49,7 @@ def main(argv):
     sec_initialgains_file = None
     last_well = None
     last_field = None
-    63x = False
+    coord_file = None
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -67,8 +68,8 @@ def main(argv):
             last_well = arg # 'U00V00'
         elif opt in ('--finfield'):
             last_field = arg # 'X00Y00'
-        elif opt in ('--63x'):
-            63x = arg # True
+        elif opt in ('--coords'):
+            coord_file = arg # True
 
 #working_dir = sys.argv[1]
 #imaging_dir = sys.argv[2]
@@ -99,24 +100,24 @@ def get_wfx(_compartment):
 def get_wfy(_compartment):
     return str(int(re.sub(r'\D', '', re.sub('.\d\d--', '', _compartment)))+1)
 
-def enable_com(_well, _field):
+def enable_com(_well, _field, enable):
     wellx = get_wfx(_well)
     welly = get_wfy(_well)
     fieldx = get_wfx(_field)
     fieldy = get_wfy(_field)
     _com = ('/cli:1 /app:matrix /cmd:enable /slide:0 /wellx:'+wellx+
             ' /welly:'+welly+' /fieldx:'+fieldx+' /fieldy:'+fieldy+
-            ' /value:true')
+            ' /value:'enable)
     return _com
 
-def cam_com(_job, _well, _field):
+def cam_com(_job, _well, _field, _dx, _dy):
     wellx = get_wfx(_well)
     welly = get_wfy(_well)
     fieldx = get_wfx(_field)
     fieldy = get_wfy(_field)
     _com = ('/cli:1 /app:matrix /cmd:add /tar:camlist /exp:'+_job+
            ' /ext:none /slide:0 /wellx:'+_wellx+' /welly:'+_welly+
-           ' /fieldx:'+fieldx+' /fieldy:'+fieldy+' /dxpos:0 /dypos:0'
+           ' /fieldx:'+fieldx+' /fieldy:'+fieldy+' /dxpos:'+_dx+' /dypos:'+_dy
            )
     return _com
 
@@ -143,14 +144,15 @@ def cut_path(files, regex):
         cut_paths.append(re.sub(regex, '', f))
     return cut_paths
 
-def process_output(dict_list, _well, output):
-    dict_list.append({'well': _well,
-                      'green': output.split()[0],
-                      'blue': output.split()[1],
-                      'yellow': output.split()[2],
-                      'red': output.split()[3]
-                      })
-    return _dict_list
+def process_output(_well, output):
+    dl = []
+    dl.append({'well': _well,
+              'green': output.split()[0],
+              'blue': output.split()[1],
+              'yellow': output.split()[2],
+              'red': output.split()[3]
+              })
+    return dl
 
 def write_csv(path, dict_list):
     with open(path, 'wb') as f:
@@ -158,23 +160,6 @@ def write_csv(path, dict_list):
         w = csv.DictWriter(f, keys)
         w.writeheader()
         w.writerows(dict_list)
-
-def create_dict(input_list, key, value):
-    """Creat a dict from a list of dicts"""
-    output = {}
-    for i in input_list:
-        output[i[key]] = i[value]
-    return output
-
-def round_values(input_dict):
-    """Round values taken from a dict. Return a list.
-    Replace the values in the old dict as well"""
-    output = []
-    for k, v in input_dict.iteritems():
-        v = int(round(int(v), -1))
-        input_dict[k] = v
-        output.append(v)
-    return output
 
 first_r_script = working_dir+'gain.r'
 sec_r_script = working_dir+'gain_change_objectives.r'
@@ -189,9 +174,7 @@ imagej_macro = working_dir+'do_max_proj_and_calc_histo_arg.ijm'
 10x_g_job = 'Job4'
 40x_g_job = 'Job5'
 63x_g_job = 'Job6'
-40x_job1 = 'Job7'
-40x_job2 = 'Job8'
-40x_job3 = 'Job9'
+40x_job = ['Job7', 'Job8', 'Job9']
 40x_pattern = 'Pattern1'
 63x_job = ['Job10', 'Job11', 'Job12', 'Job13', 'Job14', 'Job15',
             'Job16', 'Job17', 'Job18', 'Job19', 'Job20', 'Job21'] 
@@ -199,7 +182,13 @@ imagej_macro = working_dir+'do_max_proj_and_calc_histo_arg.ijm'
 stage1 = True
 stage2 = True
 stage3 = True
-if 63x:
+if coord_file:
+    coords = defaultdict(list)
+    with open(coord_file) as _file:
+    reader = csv.DictReader(_file)
+    for coord in ['dx', 'dy']:
+        for d in reader:
+            coords[d['fov']].append(d[coord])
     stage2 = False
     stage3 = False
     stage4 = True
@@ -221,10 +210,10 @@ while stage1:
         well = Directory(well_path)
         if well.get_name('U\d\d--V\d\d') == std_well and stage2:
             # Add 40x gain scan in std well to CAM list.
-            srv_output = call_server(stage2_com, stage2_end, working_dir)
+            call_server(stage2_com, stage2_end, working_dir)
             camstart = camstart_com(40x_af_job, 40x_afr, 40x_afs)
             # Start CAM scan.
-            srv_output = call_server(camstart, stage2_end, working_dir)
+            call_server(camstart, stage2_end, working_dir)
             stage2 = False
         # Check serial of 10x objective
         # Find sec_std_path.
@@ -278,9 +267,6 @@ first_std_fbs = sorted(set(first_std_fbs))
 sec_std_fbs = sorted(set(sec_std_fbs))
 # Get a unique set of names of the experiment wells.
 fin_wells = sorted(set(fin_wells))
-# Lists to store dicts with gain values.
-first_gain_dicts = []
-sec_gain_dicts = []
 
 # For all experiment wells run R script
 for i in range(len(filebases)):
@@ -288,223 +274,164 @@ for i in range(len(filebases)):
     print(first_filebases[i])
     print(well)
     r_output = subprocess.check_output(['Rscript',
-                                        first_r_script,
-                                        imaging_dir,
-                                        filebases[i],
-                                        first_initialgains_file
-                                        ])
-    first_gain_dicts = process_output(first_gain_dicts, well, r_output)
-    input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
-                    r_output.split()[2]+' '+r_output.split()[3]+'')
-    r_output = subprocess.check_output(['Rscript',
-                                        sec_r_script,
                                         first_std_path,
                                         first_std_fbs[0],
                                         first_initialgains_file,
                                         input_gains,
                                         sec_std_path,
                                         sec_std_fbs[0],
+                                        first_r_script,
+                                        imaging_dir,
+                                        filebases[i],
+                                        first_initialgains_file
+                                        ])
+    first_gain_dicts = process_output(well, r_output)
+    input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
+                    r_output.split()[2]+' '+r_output.split()[3]+'')
+    r_output = subprocess.check_output(['Rscript',
+                                        sec_r_script,
                                         sec_initialgains_file
                                         ])
     # testing
     print(r_output)
-    sec_gain_dicts = process_output(sec_gain_dicts, well, r_output)
+    sec_gain_dicts = process_output(well, r_output)
 
 write_csv(working_dir+'first_output_gains.csv', first_gain_dicts)
 write_csv(working_dir+'sec_output_gains.csv', sec_gain_dicts)
 
-# Sort gain data into one dict for each channel
-green = create_dict(sec_gain_dicts, "well", "green")
-blue = create_dict(sec_gain_dicts, "well", "blue")
-yellow = create_dict(sec_gain_dicts, "well", "yellow")
-red = create_dict(sec_gain_dicts, "well", "red")
-
-# Round gain values to multiples of 10
-green_list = round_values(green)
-blue_list = round_values(blue)
-yellow_list = round_values(yellow)
-red_list = round_values(red)
-
-# Find the unique set of gain values per channel for whole plate
-green_unique = sorted(set(green_list))
-blue_unique = sorted(set(blue_list))
-yellow_unique = sorted(set(yellow_list))
-red_unique = sorted(set(red_list))
 # Lists for storing command strings.
-stage_com_list = []
-stage_end_list = []
-green_g_com_list = []
-blue_g_com_list = []
-yellow_g_com_list = []
-red_g_com_list = []
+com_list = []
+end_com_list = []
+
 odd_even = 0
-well_dict = {}
-if stage3:
-    # Fix this: The combine operation does not work atm.
-    # Test this method
-    green = OrderedDict(sorted(green.items(), key=lambda t: t[1]))
-    groups = []
-    uniquevals = []
-    for val, group in groupby(green, lambda x: green[x]):
-    groups.append(list(group))      # Store group iterator as a list
-    uniquevals.append(val)
-    print(val)
-    for k1, k2 in combinations(green, 2):
-        if (green[k1] == green[k2] & blue[k1] == blue[k2] &
-            yellow[k1] == yellow[k2] & red[k1] == red[k2]):
-            print(green[k2])
-            # Set gain in the four channels.
-            green_g_com = gain_com(40x_job1, '1', str(green_val))
-            blue_g_com = gain_com(40x_job2, '1', str(blue_val))
-            yellow_g_com = gain_com(40x_job2, '2', str(yellow_val))
-            red_g_com = gain_com(40x_job3, '2', str(red_val))
-            stage3_com = ''
-            stage3_end = ''
-            for i in range(2):
-                for j in range(2):
-                    # Enable and add 40x job in k well to CAM list.
-                    stage3_com = (stage3_com+
-                                  enable_com(k,
-                                             'X0'+str(j)+
-                                             '--Y0'+str(i)
-                                             )+
-                                  '\n'+
-                                  cam_com(40x_pattern,
-                                          k,
-                                          'X0'+str(j)+'--Y0'+str(i)
-                                          )+
-                                  '\n')
-            stage3_end = k+'.+X01--Y01'
-            #testing
-            print(k+
-                  ' green: '+str(green_val)+
-                  ' blue: '+str(blue_val)+
-                  ' yellow: '+str(yellow_val)+
-                  ' red: '+str(red_val))
-            green[k] = -1
-            blue[k] = -1
-            yellow[k] = -1
-            red[k] = -1
-        # Remove the last line, should be empty, of a command string.
-        stage3_com = stage3_com[:stage3_com.rfind('\n')]
-        # Store the commands in lists.
-        green_g_com_list.append(green_g_com)
-        blue_g_com_list.append(blue_g_com)
-        yellow_g_com_list.append(yellow_g_com)
-        red_g_com_list.append(red_g_com)
-        stage_com_list.append(stage3_com)
-        stage_end_list.append(stage3_end)
-if stage4:
-    green_g_com = ''
-    blue_g_com = ''
-    yellow_g_com = ''
-    red_g_com = ''
-    stage4_com = ''
-    stage4_end = ''
-    for well, green_val in green.iteritems():
-        wellx = get_wfx(well)
-        welly = get_wfy(well)
-        well_no = 8*(int(wellx)-1)+int(welly)
-        well_dict[well_no] = well
-    well_dict = OrderedDict(sorted(well_dict.items(), key=lambda t: t[0]))
-    for well_no, well in well_dict.iteritems():
-    # Check if well no 1-4 or 5-8 etc.
-        if round((float(well_no)+1)/4) % 2 != odd_even:
-            green_g_com = (green_g_com +
-                           gain_com(63x_job[well_no*3-3],
-                                    '1',
-                                    str(green[well]))+
-                           '\n')
-            blue_g_com = (blue_g_com +
-                          gain_com(63x_job[well_no*3-2],
-                                   '1',
-                                   str(blue[well]))+
-                          '\n')
-            yellow_g_com = (yellow_g_com +
-                            gain_com(63x_job[well_no*3-2],
-                                     '2',
-                                     str(yellow[well]))+
-                            '\n')
-            red_g_com = (red_g_com +
-                         gain_com(63x_job[well_no*3-1],
-                                  '2',
-                                  str(red[well]))+
-                         '\n')
-            for i in range(2):
-                for j in range(2):
-                    # Enable and add 63x job in well to CAM list.
-                    # Fix this: Add coords from file (arg) per well.
-                    # Fix this: Only add selected wells from file (arg)
-                    stage4_com = (stage4_com+
-                                  enable_com(well,
-                                             'X0'+str(j)+
-                                             '--Y0'+str(i)
-                                             )+
-                                  '\n'+
-                                  cam_com(63x_pattern1,
-                                          well,
-                                          'X0'+str(j)+'--Y0'+str(i)
-                                          )+
-                                  '\n')
-            stage4_end = well+'.+X01--Y01'
-        elif odd_even == 0:
-            odd_even = 1
-            # Fix this mess of reps!
-            # Remove the last line, should be empty, of a command string.
-            stage4_com = stage4_com[:stage4_com.rfind('\n')]
-            green_g_com = green_g_com[:green_g_com.rfind('\n')]
-            blue_g_com = blue_g_com[:blue_g_com.rfind('\n')]
-            yellow_g_com = yellow_g_com[:yellow_g_com.rfind('\n')]
-            red_g_com = red_g_com[:red_g_com.rfind('\n')]
-            green_g_com_list.append(green_g_com)
-            blue_g_com_list.append(blue_g_com)
-            yellow_g_com_list.append(yellow_g_com)
-            red_g_com_list.append(red_g_com)
-            stage_com_list.append(stage4_com)
-            stage_end_list.append(stage4_end)
-            green_g_com = ''
-            blue_g_com = ''
-            yellow_g_com = ''
-            red_g_com = ''
-            stage4_com = ''
-            stage4_end = ''
-        else
-            odd_even = 0
-            # Remove the last line, should be empty, of a command string.
-            stage4_com = stage4_com[:stage4_com.rfind('\n')]
-            green_g_com = green_g_com[:green_g_com.rfind('\n')]
-            blue_g_com = blue_g_com[:blue_g_com.rfind('\n')]
-            yellow_g_com = yellow_g_com[:yellow_g_com.rfind('\n')]
-            red_g_com = red_g_com[:red_g_com.rfind('\n')]
-            green_g_com_list.append(green_g_com)
-            blue_g_com_list.append(blue_g_com)
-            yellow_g_com_list.append(yellow_g_com)
-            red_g_com_list.append(red_g_com)
-            stage_com_list.append(stage4_com)
-            stage_end_list.append(stage4_end)
-            green_g_com = ''
-            blue_g_com = ''
-            yellow_g_com = ''
-            red_g_com = ''
-            stage4_com = ''
-            stage4_end = ''
+wells = defaultdict()
+gains = defaultdict(list)
+green_sorted = defaultdict(list)
+medians = defaultdict(int)
+com = ''
+dx = ''
+dy = ''
+pattern = -1
+
+for c in ['green', 'blue', 'yellow', 'red']:
+    mlist = []
+    for d in sec_gain_dicts:
+        # Sort gain data into a list dict with well as key and where the value
+        # is a list with a gain value for each channel.
+        gains[d['well']].append(d[c])
+        if c == 'green':
+            # Round gain values to multiples of 10 in green channel
+            d['green'] = int(round(int(d['green']), -1))
+            green_sorted[d['green']].append(d['well'])
+            well_no = 8*(int(get_wfx(d['well']))-1)+int(get_wfy(d['well']))
+            wells[well_no] = d['well']
+        else:
+            # Find the median value of all gains in
+            # blue, yellow and red channels.
+            mlist.append(int(d[c]))
+            medians[c] = int(numpy.median(mlist))
+
+# Fix this mess of reps!
 if stage3:
     camstart = camstart_com(40x_af_job, 40x_afr, 40x_afs)
+    for gain, v in green_sorted.iteritems():
+        channels = [gain, medians['blue'], medians['yellow'], medians['red']]
+        # Set gain in the four channels.
+        for i,c in enumerate(channels):
+            if i < 2:
+                detector = '1'
+                job = 40x_job[i]
+            if i >= 2:
+                detector = '2'
+                job = 40x_job[i-1]
+            com = com + gain_com(job, detector, str(c)) + '\n'
+            #testing
+            print(channels)
+        for well in v:
+            print(well)
+            for i in range(2):
+                for j in range(2):
+                    # Enable and add 40x job in well to CAM list.
+                    com = (com +
+                           enable_com(well, 'X0'+str(j)+'--Y0'+str(i), 'true')+
+                           '\n'+
+                           cam_com(40x_pattern,
+                                   well,
+                                   'X0'+str(j)+'--Y0'+str(i),
+                                   '0',
+                                   '0'
+                                   )+
+                           '\n')
+            end_com = well+'.+X01--Y01'
+        # Remove the last line, should be empty, of a command string.
+        com = com[:com.rfind('\n')]
+        # Store the commands in lists.
+        com_list.append(com)
+        end_com_list.append(end_com)
+
 if stage4:
+
     camstart = camstart_com(63x_af_job, 63x_afr, 63x_afs)
-for i,com in enumerate(stage_com_list):
+    wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
+    for well_no, well in wells.iteritems():
+        channels = range(4)
+        # Check if well no 1-4 or 5-8 etc and continuous.
+        if ((round((float(well_no)+1)/4) % 2 != odd_even) &
+            (old_well_no + 1 == well_no)):
+            pattern =+ 1
+        else
+            if odd_even == 0:
+                odd_even = 1
+            else:
+                odd_even = 0
+            pattern = 0
+            # Remove the last line, should be empty, of a command string.
+            com = com[:com.rfind('\n')]
+            com_list.append(com)
+            end_com_list.append(end_com)
+            com = ''
+        for i,c in enumerate(channels):
+            if i < 2:
+                detector = '1'
+                job = 63x_job[i]
+            if i >= 2:
+                detector = '2'
+                job = 63x_job[i-1]
+            com = com + gain_com(job, detector, str(gains[well][i])) + '\n'
+        for i in range(2):
+            for j in range(2):
+                # Enable and add 63x job in well to CAM list.
+                # Add coords from file (arg) per well.
+                # Only enable selected wells from file (arg)
+                fov = well+'--X0'+str(j)+'--Y0'+str(i)
+                if fov in coords.keys():
+                    enable = 'true'
+                    dx = coords[fov][0]
+                    dy = coords[fov][1]
+                else:
+                    enable = 'false'
+                com = (com +
+                       enable_com(well, 'X0'+str(j)+'--Y0'+str(i), enable)+
+                       '\n'+
+                       cam_com(63x_pattern[pattern],
+                               well,
+                               'X0'+str(j)+'--Y0'+str(i),
+                               dx,
+                               dy
+                               )+
+                       '\n')
+        end_com = well+'.+X01--Y01'
+        old_well_no = well_no
+
+for i,com in enumerate(com_list):
     # Send gain change command to server in the four channels.
-    call_server(green_g_com_list[i], green_g_com_list[i], working_dir)
-    call_server(blue_g_com_list[i], blue_g_com_list[i], working_dir)
-    call_server(yellow_g_com_list[i], yellow_g_com_list[i], working_dir)
-    call_server(red_g_com_list[i], red_g_com_list[i], working_dir)
     # Send CAM list to server.
-    call_server(com, stage_end_list[i], working_dir)
+    call_server(com, end_com_list[i], working_dir)
     # Start scan.
     call_server(start_com, start_com, working_dir)
     time.sleep(3)
     # Start CAM scan.
-    call_server(camstart, stage_end_list[i], working_dir)
+    call_server(camstart, end_com_list[i], working_dir)
     # Stop scan
     call_server(stop_com, stop_com, working_dir)
     time.sleep(3)
