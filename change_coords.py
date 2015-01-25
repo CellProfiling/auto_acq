@@ -12,17 +12,15 @@ with open(coord_file) as _file:
     for i in reader:
         coords.append(i)
 
-def create_dict(input_list, output_dict, key, value):
+def create_dict(input_list, key, value):
+    output_dict = {}
     for i in input_list:
         output_dict[i[key]] = i[value]
     return output_dict
 
 # Sort coord data into dicts
-dxs = {}
-dys = {}
-
-dxs = create_dict(coords, dxs, "fov", "dx")
-dys = create_dict(coords, dys, "fov", "dy")
+dxs = create_dict(coords, "fov", "dx")
+dys = create_dict(coords, "fov", "dy")
 
 xml_doc = etree.parse(xml_input)
 
