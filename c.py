@@ -63,7 +63,7 @@ def cam_com(_job, _well, _field, _dx, _dy):
     _fieldx = get_wfx(_field)
     _fieldy = get_wfy(_field)
     _com = ('/cli:1 /app:matrix /cmd:add /tar:camlist /exp:'+_job+
-            ' /ext:none /slide:0 /wellx:'+_wellx+' /welly:'+_welly+
+            ' /ext:af /slide:0 /wellx:'+_wellx+' /welly:'+_welly+
             ' /fieldx:'+_fieldx+' /fieldy:'+_fieldy+' /dxpos:'+_dx+
             ' /dypos:'+_dy
             )
@@ -72,12 +72,11 @@ def cam_com(_job, _well, _field, _dx, _dy):
 def call_server(_command, _end_str, _w_dir):
     try:
         print('Sending to server...')
-        pass
-        #output = subprocess.check_output(['python',
-        #                                  _w_dir+'/socket_client.py',
-        #                                  _command,
-        #                                  _end_str,
-        #                                  ])
+        output = subprocess.check_output(['python',
+                                          _w_dir+'/socket_client.py',
+                                          _command,
+                                          _end_str,
+                                          ])
     except OSError as e:
         print('Execution failed:', e)
         sys.exit(2)
@@ -85,8 +84,7 @@ def call_server(_command, _end_str, _w_dir):
         print('Subprocess returned a non-zero exit status:', e)
         sys.exit(2)
     else:
-        #return output
-        return _command
+        return output
 
 def call_imagej(path_to_fiji, imagej_macro, im_dir):
     try:
@@ -184,22 +182,23 @@ def main(argv):
     sec_r_script = working_dir+'/gain_change_objectives.r'
     path_to_fiji = '/opt/Fiji/ImageJ-linux64'
     imagej_macro = working_dir+'/do_max_proj_and_calc_histo_arg.ijm'
-    # Check job names
-    af_job_10x = 'Job1'
-    af_job_40x = 'Job2'
+    # Job names
+    af_job_10x = 'af10x'
+    af_job_40x = 'af40x'
     afr_40x = '105'
     afs_40x = '106'
-    af_job_63x = 'Job3'
+    af_job_63x = 'af63x'
     afr_63x = '50'
     afs_63x = '51'
-    g_job_10x = 'Job4'
-    g_job_40x = 'Job5'
-    g_job_63x = 'Job6'
-    job_40x = ['Job7', 'Job8', 'Job9']
-    pattern_40x = 'Pattern1'
-    job_63x = ['Job10', 'Job11', 'Job12', 'Job13', 'Job14', 'Job15',
-               'Job16', 'Job17', 'Job18', 'Job19', 'Job20', 'Job21'] 
-    pattern_63x = ['Pattern2', 'Pattern3', 'Pattern4', 'Pattern5'] 
+    g_job_10x = 'gain10x'
+    g_job_40x = 'gain40x'
+    g_job_63x = 'gain63x'
+    job_40x = ['job7', 'job8', 'job9']
+    pattern_40x = 'pattern2'
+    job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
+               'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
+    pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
+    # Booleans to control flow.
     stage1 = True
     stage2 = True
     stage3 = True
@@ -215,16 +214,18 @@ def main(argv):
                 for coord in ['dx', 'dy']:
                     coords[d['fov']].append(d[coord])
         
-    # Check this command and change to make it work
-    stage2_com = (cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+'\n'+
+    # 40x gain command in standard well
+    stage2_com = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
+                  cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
+                  '\n'+
                   cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0'))
-    stage2_end = 'X01--Y01'
+    stage2_end = cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0')
     start_com = '/cli:1 /app:matrix /cmd:startscan'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan'
     im_dir = Directory(imaging_dir)
 
     # timeout
-    timeout = 20
+    timeout = 120
     # start time
     begin = time.time()
 
@@ -242,20 +243,21 @@ def main(argv):
             try:
                 obj_serial = image.serial_no()
                 #testing
-                print(obj_serial)
+                #print(obj_serial)
                 field = Directory(image.get_dir())
                 well_path = field.get_dir()
                 #testing
-                print(well_path)
+                #print(well_path)
                 well = Directory(well_path)
-                print(well.get_name('U\d\d--V\d\d'))
+                #testing
+                #print(well.get_name('U\d\d--V\d\d'))
                 if well.get_name('U\d\d--V\d\d') == std_well and stage2:
                     print('Stage2')
                     # Add 40x gain scan in std well to CAM list.
                     print(call_server(stage2_com, stage2_end, working_dir))
                     camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
                     # Start CAM scan.
-                    print(call_server(camstart, stage2_end, working_dir))                        
+                    print(call_server(camstart, camstart, working_dir))                        
                     stage2 = False
                 # Find sec_std_path.
                 elif (well.get_name('U\d\d--V\d\d') == std_well and
@@ -267,10 +269,11 @@ def main(argv):
                     (len(well.get_all_files('*.csv')) == 0)):
                     fin_well_paths.append(well_path)
                     #testing
-                    print(well.get_name('U\d\d--V\d\d'))                    
-                    print(field.get_name('X\d\d--Y\d\d'))
+                    #print(well.get_name('U\d\d--V\d\d'))                    
+                    #print(field.get_name('X\d\d--Y\d\d'))
                     if (well.get_name('U\d\d--V\d\d') == last_well and
-                        field.get_name('X\d\d--Y\d\d') == last_field):
+                        field.get_name('X\d\d--Y\d\d') == last_field and
+                        stage2 == False and obj_serial == '11506505'):
                         stage1 = False
             except etree.XMLSyntaxError as e:
                 print('XML error:', e)
@@ -337,6 +340,7 @@ def main(argv):
         print(filebases[i])
         print(well)
         try:
+            print('Starting R')
             r_output = subprocess.check_output(['Rscript',
                                                 first_r_script,
                                                 imaging_dir,
@@ -370,13 +374,16 @@ def main(argv):
     # Lists for storing command strings.
     com_list = []
     end_com_list = []
+    cam_end_list = []
 
+    end_com = ''
+    cam_end = ''
     odd_even = 0
     wells = defaultdict()
     gains = defaultdict(list)
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
-    com = ''
+    com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
     dx = ''
     dy = ''
     pattern = 0
@@ -436,11 +443,18 @@ def main(argv):
                                        '0'
                                        )+
                                '\n')
-                end_com = well+'.+X01--Y01'
+                        cam_end = cam_com(pattern_40x,
+                                          well,
+                                          'X0'+str(j)+'--Y0'+str(i),
+                                          '0',
+                                          '0'
+                                          )
+                        end_com = well+'.+X0'+str(j)+'--Y0'+str(i)
             # Remove the last line, should be empty, of a command string.
             com = com[:com.rfind('\n')]
             # Store the commands in lists.
             com_list.append(com)
+            cam_end_list.append(cam_end)
             end_com_list.append(end_com)
 
     if stage4:
@@ -480,7 +494,13 @@ def main(argv):
                                    dy
                                    )+
                            '\n')
-            end_com = well+'.+X01--Y01'
+                    cam_end = cam_com(pattern_63x[pattern],
+                                      well,
+                                      'X0'+str(j)+'--Y0'+str(i),
+                                      dx,
+                                      dy
+                                      )
+                    end_com = well+'.+X0'+str(j)+'--Y0'+str(i)
             old_well_no = well_no
             # Check if well no 1-4 or 5-8 etc and continuous.
             if ((round((float(well_no)+1)/4) % 2 != odd_even) &
@@ -497,21 +517,24 @@ def main(argv):
                 # Remove the last line, should be empty, of a command string.
                 com = com[:com.rfind('\n')]
                 com_list.append(com)
+                cam_end_list.append(cam_end)
                 end_com_list.append(end_com)
                 com = ''
 
     for i,com in enumerate(com_list):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
-        print(call_server(com, end_com_list[i], working_dir))
+        print(call_server(com, cam_end_list[i], working_dir))
+        time.sleep(5)
         # Start scan.
         print(call_server(start_com, start_com, working_dir))
-        time.sleep(3)
+        time.sleep(5)
         # Start CAM scan.
         print(call_server(camstart, end_com_list[i], working_dir))
+        time.sleep(5)
         # Stop scan
         print(call_server(stop_com, stop_com, working_dir))
-        time.sleep(3)
+        time.sleep(5)
 
 if __name__ =='__main__':
     main(sys.argv[1:])

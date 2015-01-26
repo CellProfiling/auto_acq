@@ -15,7 +15,7 @@ def recv_timeout(_socket, timeout, _test):
      
     # start time
     begin=time.time()
-    while _test not in data or 'scanfinished' not in data:
+    while _test not in data and 'scanfinished' not in data:
         # if data exist, then break after timeout
         if total_data and time.time()-begin > timeout:
             break
@@ -51,8 +51,9 @@ except socket.error:
      
 print 'Socket Created'
 
-host = '127.000.000.001';
-port = 8895;
+#host = '127.000.000.001'
+host = '130.229.43.22'
+port = 8895
 
 try:
     # Connect to the server at the port
@@ -61,7 +62,7 @@ try:
     sock.connect(server_address)
 
     # Receive welcome reply from server
-    recv_timeout(sock, 20)
+    recv_timeout(sock, 3, test_string)
 
 except socket.error:
     print 'Failed to connect to socket'
@@ -80,6 +81,7 @@ try:
             line = line + '\r\n'
         print 'sending "%s"' % line
         sock.send(line)
+        time.sleep(0.3)
     
 except socket.error:
     #Send failed
@@ -94,7 +96,8 @@ try:
     print('closing')
 
 finally:
-    time.sleep(4)
-#    print 'closing socket'
-#    sock.close()
+    time.sleep(1)
+    #print 'closing socket'
+    #sock.shutdown(socket.SHUT_WR)
+    sock.close()
     sys.exit()
