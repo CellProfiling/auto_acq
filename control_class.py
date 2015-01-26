@@ -45,7 +45,8 @@ class Directory(Base):
 
     def get_children(self):
         """Return a list of child directories."""
-        return next(os.walk(self.path))[1]
+        return filter(os.path.isdir, [os.path.join(self.path,f)
+                      for f in os.listdir(self.path)])
 
     def get_name(self, regex):
         """Return the name of the current directory, matching regex."""

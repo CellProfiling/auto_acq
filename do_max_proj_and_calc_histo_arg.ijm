@@ -65,11 +65,12 @@ fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
 
 while (fileArray.length != 0) {
 	
-	channelIndex = indexOf(fileArray[0], "--C");
+	channelIndex = lastIndexOf(fileArray[0], "--C");
 	channelString = substring(fileArray[0], channelIndex+3, channelIndex+5);
-	wellXIndex = indexOf(fileArray[0], "--U");
+	wellXIndex = lastIndexOf(fileArray[0], "--U");
 	wellX = substring(fileArray[0], wellXIndex+3, wellXIndex+5);
-	wellYIndex = indexOf(fileArray[0], "--V");
+    print(wellX);
+	wellYIndex = lastIndexOf(fileArray[0], "--V");
 	wellY = substring(fileArray[0], wellYIndex+3, wellYIndex+5);
 
 	imagesToStack = newArray();
@@ -102,8 +103,8 @@ while (fileArray.length != 0) {
 	}
 	run("Images to Stack", "name=Stack title=[] use");
 	run("Z Project...", "projection=[Max Intensity]");
-	saveAs("Tiff", pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+
-	        channelString+".tif");
+    pathProjImage = pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".tif";
+	saveAs("Tiff", pathProjImage);
     nBins = 256;
 	getHistogram(values, counts, nBins);
 	d=File.open(pathMaxProjs+"U"+wellX+"--V"+wellY+"--C"+channelString+".ome.csv");
@@ -113,5 +114,9 @@ while (fileArray.length != 0) {
 	}
 	File.close(d);
 	close("*");
+    err=File.rename(pathProjImage, pathProjImage+".bak");
+    for (i = 0; i < imagesToStack.length; i++) {
+        err=File.rename(imagesToStack[i], imagesToStack[i]+".bak");
+	}
 }
 print("Analysis finished!");
