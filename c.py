@@ -517,7 +517,7 @@ def main(argv):
                                       dx,
                                       dy
                                       )
-                    end_com = well+'.+X0'+str(j)+'--Y0'+str(i)
+                    end_com = '.+CAM.+'+well+'.+X0'+str(j)+'--Y0'+str(i)
             old_well_no = well_no
             # Check if well no 1-4 or 5-8 etc and continuous.
             if ((round((float(well_no)+1)/4) % 2 != odd_even) &

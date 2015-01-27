@@ -105,4 +105,4 @@ finally:
     #print 'closing socket'
     #sock.shutdown(socket.SHUT_WR)
     #sock.close()
-    sys.exit()
+    #sys.exit()
