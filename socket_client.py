@@ -99,5 +99,5 @@ finally:
     time.sleep(1)
     #print 'closing socket'
     #sock.shutdown(socket.SHUT_WR)
-    sock.close()
+    #sock.close()
     sys.exit()

@@ -150,8 +150,8 @@ def main(argv):
     imaging_dir = ''
     working_dir = os.path.dirname(os.path.abspath(__file__))
     std_well = 'U00--V00'
-    first_initialgains_file = working_dir+'/10x_gain.csv'
-    sec_initialgains_file = working_dir+'/40x_gain.csv'
+    first_initialgains_file = os.path.normpath(working_dir+'/10x_gain.csv')
+    sec_initialgains_file = os.path.normpath(working_dir+'/40x_gain.csv')
     last_well = 'U00--V00'
     last_field = 'X01--Y01'
     coord_file = None
@@ -160,28 +160,28 @@ def main(argv):
             usage()
             sys.exit()
         elif opt in ('-i', '--input'):
-            imaging_dir = arg
+            imaging_dir = os.path.normpath(arg)
         elif opt in ('--wdir'):
-            working_dir = arg
+            working_dir = os.path.normpath(arg)
         elif opt in ('--std'):
             std_well = arg # 'U00--V00'
         elif opt in ('--firstgain'):
-            first_initialgains_file = arg
+            first_initialgains_file = os.path.normpath(arg)
         elif opt in ('--secondgain'):
-            sec_initialgains_file = arg
+            sec_initialgains_file = os.path.normpath(arg)
         elif opt in ('--finwell'):
             last_well = arg # 'U00--V00'
         elif opt in ('--finfield'):
             last_field = arg # 'X00--Y00'
         elif opt in ('--coords'):
-            coord_file = arg #
+            coord_file = os.path.normpath(arg) #
         else:
             assert False, 'Unhandled option!'
 
-    first_r_script = working_dir+'/gain.r'
-    sec_r_script = working_dir+'/gain_change_objectives.r'
-    path_to_fiji = '/opt/Fiji/ImageJ-linux64'
-    imagej_macro = working_dir+'/do_max_proj_and_calc_histo_arg.ijm'
+    first_r_script = os.path.normpath(working_dir+'/gain.r')
+    sec_r_script = os.path.normpath(working_dir+'/gain_change_objectives.r')
+    path_to_fiji = os.path.normpath('ImageJ-linux64')
+    imagej_macro = os.path.normpath(working_dir+'/do_max_proj_and_calc_histo_arg.ijm')
     # Job names
     af_job_10x = 'af10x'
     af_job_40x = 'af40x'
@@ -200,11 +200,12 @@ def main(argv):
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
     # Booleans to control flow.
     stage1 = True
-    stage2 = True
+    stage2before = True
+    stage2after = False
     stage3 = True
     stage4 = False
     if coord_file:
-        stage2 = False
+        stage2before = False
         stage3 = False
         stage4 = True
         coords = defaultdict(list)
@@ -243,28 +244,28 @@ def main(argv):
             try:
                 obj_serial = image.serial_no()
                 #testing
-                #print(obj_serial)
+                print(obj_serial)
                 field = Directory(image.get_dir())
                 well_path = field.get_dir()
                 #testing
-                #print(well_path)
+                print(well_path)
                 well = Directory(well_path)
                 #testing
                 #print(well.get_name('U\d\d--V\d\d'))
-                if well.get_name('U\d\d--V\d\d') == std_well and stage2:
+                if well.get_name('U\d\d--V\d\d') == std_well and stage2before:
                     print('Stage2')
                     # Add 40x gain scan in std well to CAM list.
                     print(call_server(stage2_com, stage2_end, working_dir))
                     camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
                     # Start CAM scan.
-                    print(call_server(camstart, camstart, working_dir))                        
-                    stage2 = False
+                    print(call_server(camstart, camstart, working_dir))
+                    stage2before = False
                 # Find sec_std_path.
                 elif (well.get_name('U\d\d--V\d\d') == std_well and
                       obj_serial != '11506505'):
                     sec_std_path = well_path
                 #testing
-                print(len(well.get_all_files('*.tif')))
+                #print(len(well.get_all_files('*.tif')))
                 if ((len(well.get_all_files('*.tif')) == 66) &
                     (len(well.get_all_files('*.csv')) == 0)):
                     fin_well_paths.append(well_path)
@@ -273,8 +274,10 @@ def main(argv):
                     #print(field.get_name('X\d\d--Y\d\d'))
                     if (well.get_name('U\d\d--V\d\d') == last_well and
                         field.get_name('X\d\d--Y\d\d') == last_field and
-                        stage2 == False and obj_serial == '11506505'):
+                        stage2after):
                         stage1 = False
+                    if obj_serial != '11506505':
+                        stage2after = True
             except etree.XMLSyntaxError as e:
                 print('XML error:', e)
                 sys.exit(2)
@@ -362,14 +365,16 @@ def main(argv):
                                                 ])
         except OSError as e:
             print('Execution failed:', e)
+            sys.exit()
         except subprocess.CalledProcessError as e:
             print('Subprocess returned a non-zero exit status:', e)
+            sys.exit()
         # testing
         print(r_output)
         sec_gain_dicts = process_output(well, r_output)
 
-    write_csv(working_dir+'/first_output_gains.csv', first_gain_dicts)
-    write_csv(working_dir+'/sec_output_gains.csv', sec_gain_dicts)
+    write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'), first_gain_dicts)
+    write_csv(os.path.normpath(working_dir+'/sec_output_gains.csv'), sec_gain_dicts)
 
     # Lists for storing command strings.
     com_list = []
