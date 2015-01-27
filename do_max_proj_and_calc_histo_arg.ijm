@@ -69,7 +69,6 @@ while (fileArray.length != 0) {
 	channelString = substring(fileArray[0], channelIndex+3, channelIndex+5);
 	wellXIndex = lastIndexOf(fileArray[0], "--U");
 	wellX = substring(fileArray[0], wellXIndex+3, wellXIndex+5);
-    print(wellX);
 	wellYIndex = lastIndexOf(fileArray[0], "--V");
 	wellY = substring(fileArray[0], wellYIndex+3, wellYIndex+5);
 

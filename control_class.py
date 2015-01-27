@@ -48,10 +48,21 @@ class Directory(Base):
         return filter(os.path.isdir, [os.path.join(self.path,f)
                       for f in os.listdir(self.path)])
 
+    def get_all_children(self):
+        dir_list = []
+        for root, dirnames, filenames in os.walk(self.path):
+            for dirname in dirnames:
+                dir_list.append(os.path.join(root, dirname))
+        return dir_list
+
     def get_name(self, regex):
         """Return the name of the current directory, matching regex."""
         path = os.path.normpath(self.path)
         return super(Directory, self).get_name(path, regex)
+
+    def get_files(self, regex):
+        return filter(os.path.isfile, [os.path.join(self.path,f)
+                      for f in fnmatch.filter(os.listdir(self.path), regex)])
 
     def get_all_files(self, regex):
         """Return a list of all files matching regex, recursively."""

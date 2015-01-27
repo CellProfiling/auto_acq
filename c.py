@@ -181,7 +181,8 @@ def main(argv):
     first_r_script = os.path.normpath(working_dir+'/gain.r')
     sec_r_script = os.path.normpath(working_dir+'/gain_change_objectives.r')
     path_to_fiji = os.path.normpath('ImageJ-linux64')
-    imagej_macro = os.path.normpath(working_dir+'/do_max_proj_and_calc_histo_arg.ijm')
+    imagej_macro = os.path.normpath(working_dir+
+                                    '/do_max_proj_and_calc_histo_arg.ijm')
     # Job names
     af_job_10x = 'af10x'
     af_job_40x = 'af40x'
@@ -200,6 +201,7 @@ def main(argv):
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
     # Booleans to control flow.
     stage1 = True
+    stage1after = False
     stage2before = True
     stage2after = False
     stage3 = True
@@ -220,13 +222,13 @@ def main(argv):
                   cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
                   cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0'))
-    stage2_end = cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0')
+    stage2_end = ''
     start_com = '/cli:1 /app:matrix /cmd:startscan'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan'
     im_dir = Directory(imaging_dir)
 
     # timeout
-    timeout = 120
+    timeout = 300
     # start time
     begin = time.time()
 
@@ -237,60 +239,68 @@ def main(argv):
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
             break
-        im_paths = sorted(im_dir.get_all_files('*.tif'))
+        print('Searching for images...')
         fin_well_paths = []
-        for im_path in im_paths:
-            image = File(im_path)
-            try:
-                obj_serial = image.serial_no()
-                #testing
-                print(obj_serial)
-                field = Directory(image.get_dir())
-                well_path = field.get_dir()
-                #testing
-                print(well_path)
-                well = Directory(well_path)
-                #testing
-                #print(well.get_name('U\d\d--V\d\d'))
-                if well.get_name('U\d\d--V\d\d') == std_well and stage2before:
-                    print('Stage2')
-                    # Add 40x gain scan in std well to CAM list.
-                    print(call_server(stage2_com, stage2_end, working_dir))
-                    camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
-                    # Start CAM scan.
-                    print(call_server(camstart, camstart, working_dir))
-                    stage2before = False
-                # Find sec_std_path.
-                elif (well.get_name('U\d\d--V\d\d') == std_well and
-                      obj_serial != '11506505'):
-                    sec_std_path = well_path
-                #testing
-                #print(len(well.get_all_files('*.tif')))
-                if ((len(well.get_all_files('*.tif')) == 66) &
-                    (len(well.get_all_files('*.csv')) == 0)):
-                    fin_well_paths.append(well_path)
+        try:
+            im_dir_children = im_dir.get_all_children()
+            for im_dir_child in im_dir_children:
+                child_dir = Directory(im_dir_child)
+                im_paths = sorted(child_dir.get_files('*.tif'))
+                if im_paths:
+                    image = File(im_paths[0])
+                    obj_serial = image.serial_no()
                     #testing
-                    #print(well.get_name('U\d\d--V\d\d'))                    
-                    #print(field.get_name('X\d\d--Y\d\d'))
-                    if (well.get_name('U\d\d--V\d\d') == last_well and
-                        field.get_name('X\d\d--Y\d\d') == last_field and
-                        stage2after):
-                        stage1 = False
-                    if obj_serial != '11506505':
-                        stage2after = True
-            except etree.XMLSyntaxError as e:
-                print('XML error:', e)
-                sys.exit(2)
+                    print(obj_serial)
+                    field_path = image.get_dir()
+                    field = Directory(field_path)
+                    well_path = field.get_dir()
+                    #testing
+                    print(well_path)
+                    well = Directory(well_path)
+                    #testing
+                    #print(well.get_name('U\d\d--V\d\d'))
+                    if well.get_name('U\d\d--V\d\d') == std_well and stage2before:
+                        print('Stage2')
+                        # Add 40x gain scan in std well to CAM list.
+                        print(call_server(stage2_com, '', working_dir))
+                        camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+                        # Start CAM scan.
+                        print(call_server(camstart, '', working_dir))
+                        stage2before = False
+                    # Find sec_std_path.
+                    elif (well.get_name('U\d\d--V\d\d') == std_well and
+                          obj_serial != '11506505'):
+                        sec_std_path = well_path
+                    #testing
+                    #print(len(well.get_all_files('*.tif')))
+                    if ((len(well.get_all_files('*.tif')) == 66) &
+                        (len(well.get_all_files('*.csv')) == 0)):
+                        fin_well_paths.append(well_path)
+                        #testing
+                        #print(well.get_name('U\d\d--V\d\d'))                    
+                        #print(field.get_name('X\d\d--Y\d\d'))
+                        if (well.get_name('U\d\d--V\d\d') == last_well and
+                            field.get_name('X\d\d--Y\d\d') == last_field):
+                            if obj_serial == '11506505':
+                                stage1after = True
+                        if obj_serial != '11506505':
+                            stage2after = True
+        except etree.XMLSyntaxError as e:
+            print('XML error:', e)
+            sys.exit(2)
+        except IndexError as e:
+            print('No images in this directory... but maybe in the next?' , e)
         fin_well_paths = sorted(set(fin_well_paths))
         for well_path in fin_well_paths:
             ptime = time.time()
-            print('Starting ImageJ')
+            print('Starting ImageJ...')
             print(call_imagej(path_to_fiji, imagej_macro, well_path))
             print(str(time.time()-ptime)+' secs')
             begin = time.time()
+        print('Sleeping 5 secs...')
         time.sleep(5)
-        #testing
-        print('sleeping 5 secs')
+        if stage1after and stage2after:
+            stage1 = False
 
     # Find the top 'slide--S00' directory.
     searching = True
@@ -340,10 +350,10 @@ def main(argv):
     # For all experiment wells run R script
     for i in range(len(filebases)):
         well = fin_wells[i]
-        print(filebases[i])
+        #print(filebases[i])
         print(well)
         try:
-            print('Starting R')
+            print('Starting R...')
             r_output = subprocess.check_output(['Rscript',
                                                 first_r_script,
                                                 imaging_dir,
@@ -373,8 +383,10 @@ def main(argv):
         print(r_output)
         sec_gain_dicts = process_output(well, r_output)
 
-    write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'), first_gain_dicts)
-    write_csv(os.path.normpath(working_dir+'/sec_output_gains.csv'), sec_gain_dicts)
+    write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'),
+              first_gain_dicts)
+    write_csv(os.path.normpath(working_dir+'/sec_output_gains.csv'),
+              sec_gain_dicts)
 
     # Lists for storing command strings.
     com_list = []
@@ -529,17 +541,18 @@ def main(argv):
     for i,com in enumerate(com_list):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
-        print(call_server(com, cam_end_list[i], working_dir))
-        time.sleep(5)
+        #cam_end_list[i]
+        print(call_server(com, '', working_dir))
+        time.sleep(8)
         # Start scan.
-        print(call_server(start_com, start_com, working_dir))
-        time.sleep(5)
+        print(call_server(start_com, '', working_dir))
+        time.sleep(8)
         # Start CAM scan.
         print(call_server(camstart, end_com_list[i], working_dir))
-        time.sleep(5)
+        time.sleep(8)
         # Stop scan
-        print(call_server(stop_com, stop_com, working_dir))
-        time.sleep(5)
+        print(call_server(stop_com, '', working_dir))
+        time.sleep(8)
 
 if __name__ =='__main__':
     main(sys.argv[1:])

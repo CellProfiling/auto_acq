@@ -12,10 +12,11 @@ def recv_timeout(_socket, timeout, _test):
     # total data in an array
     total_data=[]
     data=''
+    joined_data = ''
      
     # start time
     begin=time.time()
-    while _test not in data and 'scanfinished' not in data:
+    while _test not in joined_data and 'scanfinished' not in data:
         # if data exist, then break after timeout
         if total_data and time.time()-begin > timeout:
             break
@@ -32,12 +33,13 @@ def recv_timeout(_socket, timeout, _test):
                 total_data.append(data)
                 # reset start time
                 begin=time.time()
+                joined_data = ''.join(total_data)
             else:
                 # sleep to add time difference
                 time.sleep(0.1)
         except:
             pass
-     
+
     # join all data to final data
     return ''.join(total_data)
 
@@ -62,7 +64,7 @@ try:
     sock.connect(server_address)
 
     # Receive welcome reply from server
-    recv_timeout(sock, 3, test_string)
+    recv_timeout(sock, 3, 'Welcome')
 
 except socket.error:
     print 'Failed to connect to socket'
@@ -81,7 +83,9 @@ try:
             line = line + '\r\n'
         print 'sending "%s"' % line
         sock.send(line)
-        time.sleep(0.3)
+        time.sleep(0.2)
+        recv_timeout(sock, 20, line[:-2])
+
     
 except socket.error:
     #Send failed
@@ -89,11 +93,12 @@ except socket.error:
     sys.exit()
     
 print 'Message sent successfully'
- 
+
 try:
-    #get reply and print
-    recv_timeout(sock, 20, test_string)
-    print('closing')
+    if test_string:
+        #get reply and print
+        recv_timeout(sock, 20, test_string)
+        print('closing')
 
 finally:
     time.sleep(1)
