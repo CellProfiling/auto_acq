@@ -4,6 +4,7 @@ import time
 
 message = sys.argv[1]
 test_string = sys.argv[2]
+host = sys.argv[3]
 
 def recv_timeout(_socket, timeout, _test):
     # make socket non blocking
@@ -54,7 +55,6 @@ except socket.error:
 print 'Socket Created'
 
 #host = '127.000.000.001'
-host = '130.229.43.22'
 port = 8895
 
 try:

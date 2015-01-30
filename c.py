@@ -28,7 +28,8 @@ def usage():
     --secondgain=<gain_file>    : set second initial gains file
     --finwell=<well>            : set final well
     --finfield=<field>          : set final field
-    --coords=<file>             : set 63x coordinates file""")
+    --coords=<file>             : set 63x coordinates file
+    --host=<ip>                 : set host ip address""")
 
 def camstart_com(_afjob, _afr, _afs):
     _com = ('/cli:1 /app:matrix /cmd:startcamscan /runtime:36000'
@@ -69,13 +70,14 @@ def cam_com(_job, _well, _field, _dx, _dy):
             )
     return _com
 
-def call_server(_command, _end_str, _w_dir):
+def call_server(_command, _end_str, _w_dir, _host):
     try:
         print('Sending to server...')
         output = subprocess.check_output(['python',
                                           _w_dir+'/socket_client.py',
                                           _command,
                                           _end_str,
+                                          _host
                                           ])
     except OSError as e:
         print('Execution failed:', e)
@@ -136,7 +138,8 @@ def main(argv):
                                                  'secondgain=',
                                                  'finwell=',
                                                  'finfield=',
-                                                 'coords='
+                                                 'coords=',
+                                                 'host='
                                                  ])
     except getopt.GetoptError as e:
         print e
@@ -155,6 +158,7 @@ def main(argv):
     last_well = 'U00--V00'
     last_field = 'X01--Y01'
     coord_file = None
+    host = ''
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -175,6 +179,8 @@ def main(argv):
             last_field = arg # 'X00--Y00'
         elif opt in ('--coords'):
             coord_file = os.path.normpath(arg) #
+        elif opt in ('--host'):
+            host = arg
         else:
             assert False, 'Unhandled option!'
 
@@ -262,10 +268,10 @@ def main(argv):
                     if well.get_name('U\d\d--V\d\d') == std_well and stage2before:
                         print('Stage2')
                         # Add 40x gain scan in std well to CAM list.
-                        print(call_server(stage2_com, '', working_dir))
+                        print(call_server(stage2_com, '', working_dir, host))
                         camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
                         # Start CAM scan.
-                        print(call_server(camstart, '', working_dir))
+                        print(call_server(camstart, '', working_dir, host))
                         stage2before = False
                     # Find sec_std_path.
                     elif (well.get_name('U\d\d--V\d\d') == std_well and
@@ -542,16 +548,16 @@ def main(argv):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         #cam_end_list[i]
-        print(call_server(com, '', working_dir))
+        print(call_server(com, '', working_dir, host))
         time.sleep(8)
         # Start scan.
-        print(call_server(start_com, '', working_dir))
+        print(call_server(start_com, '', working_dir, host))
         time.sleep(8)
         # Start CAM scan.
-        print(call_server(camstart, end_com_list[i], working_dir))
+        print(call_server(camstart, end_com_list[i], working_dir, host))
         time.sleep(8)
         # Stop scan
-        print(call_server(stop_com, '', working_dir))
+        print(call_server(stop_com, '', working_dir, host))
         time.sleep(8)
 
 if __name__ =='__main__':
