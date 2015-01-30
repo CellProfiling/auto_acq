@@ -61,7 +61,7 @@ pathLUTs = topDir+"luts/";
 File.makeDirectory(pathLUTs);
 
 fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
+fileArray = listFiles(dirChosen, topDir, ".+\.png$", fileArray);
 
 for (i = 0; i < fileArray.length; i++) {
 
@@ -74,8 +74,8 @@ for (i = 0; i < fileArray.length; i++) {
 	
 	channelIndex = indexOf(fileArray[i], "--C");
 	channelString = substring(fileArray[i], channelIndex+3, channelIndex+5);
-	wellXIndex = indexOf(fileArray[i], "--U");
-	wellX = substring(fileArray[i], wellXIndex+3, wellXIndex+5);
+	wellXIndex = indexOf(fileArray[i], "U");
+	wellX = substring(fileArray[i], wellXIndex+1, wellXIndex+3);
 	wellYIndex = indexOf(fileArray[i], "--V");
 	wellY = substring(fileArray[i], wellYIndex+3, wellYIndex+5);
 	xFieldIndex = indexOf(fileArray[i], "--X");
@@ -84,16 +84,18 @@ for (i = 0; i < fileArray.length; i++) {
 	yField = substring(fileArray[i], yFieldIndex+3, yFieldIndex+5);
 
 	if (channelString == "00") {
-		run("Blue");
-	} else if (channelString == "01") {
 		run("Green");
-	} else if (channelString == "02" || channelString == "03") {
+	} else if (channelString == "01") {
+		run("Blue");
+	} else if (channelString == "02") {
+		run("Yellow");
+	} else if (channelString == "03") {
 		run("Red");
 	}
 	
 	run("8-bit");
 	saveAs("png", pathLUTs+"U"+wellX+"--V"+wellY+"--X"+xField+"--Y"+yField+
-			"--C"+channelString+".jpg");
+			"--C"+channelString+".png");
 	close("*");
 	}
 }
