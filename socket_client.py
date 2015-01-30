@@ -2,107 +2,122 @@ import socket
 import sys
 import time
 
-message = sys.argv[1]
-test_string = sys.argv[2]
-host = sys.argv[3]
+class Client(object):
+    """Client class
 
-def recv_timeout(_socket, timeout, _test):
-    # make socket non blocking
-    _socket.setblocking(False)
-     
-    # total data in an array
-    total_data=[]
-    data=''
-    joined_data = ''
-     
-    # start time
-    begin=time.time()
-    while _test not in joined_data and 'scanfinished' not in data:
-        # if data exist, then break after timeout
-        if total_data and time.time()-begin > timeout:
-            break
-         
-        # if no data exist, then break after longer timeout
-        elif time.time()-begin > timeout*2:
-            break
-         
-        # receive data
+    Attributes:
+        sock: The socket
+    """
+    
+    def __init__(self, sock=None):
+        # Create a TCP/IP socket
         try:
-            data = _socket.recv(8192)
-            if data:
-                print 'received "%s"' % data
-                total_data.append(data)
-                # reset start time
-                begin=time.time()
-                joined_data = ''.join(total_data)
+            if sock is None:
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             else:
-                # sleep to add time difference
-                time.sleep(0.1)
-        except:
-            pass
+                self.sock = sock
+        except socket.error:
+            print 'Failed to create socket'
+            sys.exit()
+        print 'Socket Created'
 
-    # join all data to final data
-    return ''.join(total_data)
-
-# Create a TCP/IP socket
-
-try:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-except socket.error:
-    print 'Failed to create socket'
-    sys.exit()
+    def recv_timeout(self, timeout, test):
+        """Receives reply from server, with a timeout and test string.
+        When the test string is received, the listening loop ends."""
+        
+        # make socket non blocking
+        self.sock.setblocking(False)
+ 
+        # total data in an array
+        total_data=[]
+        data=''
+        joined_data = ''
      
-print 'Socket Created'
+        # start time
+        begin=time.time()
+        while test not in joined_data:
+            # if data exist, then break after timeout
+            if total_data and time.time()-begin > timeout:
+                break
 
-#host = '127.000.000.001'
-port = 8895
+            # if no data exist, then break after longer timeout
+            elif time.time()-begin > timeout*2:
+                break
 
-try:
-    # Connect to the server at the port
-    server_address = (host, port)
-    print 'connecting to %s port %s' % server_address
-    sock.connect(server_address)
+            # receive data
+            try:
+                data = self.sock.recv(8192)
+                if data:
+                    print 'received "%s"' % data
+                    total_data.append(data)
+                    # reset start time
+                    begin=time.time()
+                    # join all data to final data
+                    joined_data = ''.join(total_data)
+                else:
+                    # sleep to add time difference
+                    time.sleep(0.1)
+            except:
+                pass
 
-    # Receive welcome reply from server
-    recv_timeout(sock, 3, 'Welcome')
+        return joined_data
 
-except socket.error:
-    print 'Failed to connect to socket'
-    sys.exit()
+    def connect(self, host, port):
+        """Connects to the socket object, on host and port.
+        host: A string representing the ip address of the server to connect.
+        port: An int representing the port address of the server to connect.
+        """
 
-try:
-    
-    # Send data
-    # Make compatible with Windows line breaks
-    for line in message.splitlines():
-        if line[-2:]=='\r\n':
-            line = line
-        if line[-1:]=='\n':
-            line = line[:-1] + '\r\n'
-        else:
-            line = line + '\r\n'
-        print 'sending "%s"' % line
-        sock.send(line)
-        time.sleep(0.2)
-        recv_timeout(sock, 20, line[:-2])
+        try:
+            # Connect to the server at the port
+            server_address = (host, port)
+            print 'connecting to %s port %s' % server_address
+            self.sock.connect(server_address)
 
-    
-except socket.error:
-    #Send failed
-    print 'Sending to server failed'
-    sys.exit()
-    
-print 'Message sent successfully'
+            # Receive welcome reply from server
+            self.recv_timeout(3, 'Welcome')
 
-try:
-    if test_string:
-        #get reply and print
-        recv_timeout(sock, 20, test_string)
-        print('closing')
+        except socket.error:
+            print 'Failed to connect to socket.'
+            sys.exit()
+        
+        return
 
-finally:
-    time.sleep(1)
-    #print 'closing socket'
-    #sock.shutdown(socket.SHUT_WR)
-    #sock.close()
-    #sys.exit()
+    def send(self, message):
+        """Function to send data from client to server.
+        message: A string representing the message to send from the client
+                     to the server.
+        """
+        try:
+            # Send data
+            # Make compatible with Windows line breaks
+            for line in message.splitlines():
+                if line[-2:]=='\r\n':
+                    line = line
+                if line[-1:]=='\n':
+                    line = line[:-1] + '\r\n'
+                else:
+                    line = line + '\r\n'
+                print 'sending "%s"' % line
+                self.sock.send(line)
+                time.sleep(0.2)
+                self.recv_timeout(20, line[:-2])
+
+        except socket.error:
+            #Send failed
+            print 'Sending to server failed.'
+            sys.exit()
+
+        print 'Message sent successfully.'
+        
+        return
+
+    def close(self):
+        self.sock.shutdown(socket.SHUT_RDWR)
+        time.sleep(0.5)
+        self.sock.close()
+        print('Socket closed.')
+        return
+
+if __name__ =='__main__':
+    main(sys.argv[1:])

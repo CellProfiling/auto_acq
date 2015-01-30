@@ -14,9 +14,11 @@ from collections import defaultdict
 from control_class import Base
 from control_class import Directory
 from control_class import File
+from socket_client import Client
 
 def usage():
     """Usage function to help user start the script"""
+    
     print("""Usage: """+sys.argv[0]+""" -i <dir> [options]
     
     Options and arguments:
@@ -32,23 +34,34 @@ def usage():
     --host=<ip>                 : set host ip address""")
 
 def camstart_com(_afjob, _afr, _afs):
+    """Returns a cam command to start the cam scan with selected AF job
+    and AF settings."""
+    
     _com = ('/cli:1 /app:matrix /cmd:startcamscan /runtime:36000'
             ' /repeattime:36000 /afj:'+_afjob+' /afr:'+_afr+' /afs:'+_afs)
     return _com
 
 def gain_com(_job, _pmt, _gain):
+    """Returns a cam command for changing the pmt gain in a job."""
+    
     _com = ('/cli:1 /app:matrix /cmd:adjust /tar:pmt /num:'+_pmt+
             ' /exp:'+_job+' /prop:gain /value:'+_gain
             )
     return _com
 
 def get_wfx(_compartment):
+    """Returns a string representing the well or field X coordinate."""
+    
     return str(int(re.sub(r'\D', '', re.sub('--.\d\d', '', _compartment)))+1)
 
 def get_wfy(_compartment):
+    """Returns a string representing the well or field Y coordinate."""
+    
     return str(int(re.sub(r'\D', '', re.sub('.\d\d--', '', _compartment)))+1)
 
 def enable_com(_well, _field, enable):
+    """Returns a cam command to enable a field in a well."""
+    
     wellx = get_wfx(_well)
     welly = get_wfy(_well)
     fieldx = get_wfx(_field)
@@ -59,6 +72,8 @@ def enable_com(_well, _field, enable):
     return _com
 
 def cam_com(_job, _well, _field, _dx, _dy):
+    """Returns a cam command to add a field to the cam list."""
+    
     _wellx = get_wfx(_well)
     _welly = get_wfy(_well)
     _fieldx = get_wfx(_field)
@@ -70,25 +85,29 @@ def cam_com(_job, _well, _field, _dx, _dy):
             )
     return _com
 
-def call_server(_command, _end_str, _w_dir, _host):
-    try:
-        print('Sending to server...')
-        output = subprocess.check_output(['python',
-                                          _w_dir+'/socket_client.py',
-                                          _command,
-                                          _end_str,
-                                          _host
-                                          ])
-    except OSError as e:
-        print('Execution failed:', e)
-        sys.exit(2)
-    except subprocess.CalledProcessError as e:
-        print('Subprocess returned a non-zero exit status:', e)
-        sys.exit(2)
-    else:
-        return output
+#def call_server(_command, _end_str, _w_dir, _host):
+#    """Function to call the server."""
+#    # Change this function, or replace it with calling the socket object.
+#    try:
+#        print('Sending to server...')
+#        output = subprocess.check_output(['python',
+#                                          _w_dir+'/socket_client.py',
+#                                          _command,
+#                                          _end_str,
+#                                          _host
+#                                          ])
+#    except OSError as e:
+#        print('Execution failed:', e)
+#        sys.exit(2)
+#    except subprocess.CalledProcessError as e:
+#        print('Subprocess returned a non-zero exit status:', e)
+#        sys.exit(2)
+#    else:
+#        return output
 
 def call_imagej(path_to_fiji, imagej_macro, im_dir):
+    """Function to call ImageJ (Fiji). Returns output from ImageJ."""
+    
     try:
         output = subprocess.check_output([path_to_fiji,
                                           '--headless',
@@ -106,12 +125,16 @@ def call_imagej(path_to_fiji, imagej_macro, im_dir):
         return output
 
 def cut_path(files, regex):
+    """Function to cut specific part of the end of a file name."""
+    # Replace with function in control class.
     cut_paths = []
     for f in files:
         cut_paths.append(re.sub(regex, '', f))
     return cut_paths
 
 def process_output(_well, output):
+    """Function to process output from the R scripts."""
+    
     dl = []
     dl.append({'well': _well,
               'green': output.split()[0],
@@ -122,6 +145,8 @@ def process_output(_well, output):
     return dl
 
 def write_csv(path, dict_list):
+    """Function to write a list of dicts as a csv file."""
+    
     with open(path, 'wb') as f:
         keys = ['well', 'green', 'blue', 'yellow', 'red']
         w = csv.DictWriter(f, keys)
@@ -129,6 +154,8 @@ def write_csv(path, dict_list):
         w.writerows(dict_list)
 
 def main(argv):
+    """Main function"""
+    
     try:
         opts, args = getopt.getopt(argv, 'hi:', ['help',
                                                  'input=',
@@ -184,6 +211,7 @@ def main(argv):
         else:
             assert False, 'Unhandled option!'
 
+    # Paths
     first_r_script = os.path.normpath(working_dir+'/gain.r')
     sec_r_script = os.path.normpath(working_dir+'/gain_change_objectives.r')
     path_to_fiji = os.path.normpath('ImageJ-linux64')
@@ -205,6 +233,7 @@ def main(argv):
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
                'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
+    
     # Booleans to control flow.
     stage1 = True
     stage1after = False
@@ -231,7 +260,17 @@ def main(argv):
     stage2_end = ''
     start_com = '/cli:1 /app:matrix /cmd:startscan'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan'
+    
+    # Create imaging directory oject
     im_dir = Directory(imaging_dir)
+
+    # Create socket
+    sock = Client()
+    # Port number
+    port = 8895
+    # Connect to server
+    sock.connect(host, port)
+    
 
     # timeout
     timeout = 300
@@ -268,10 +307,10 @@ def main(argv):
                     if well.get_name('U\d\d--V\d\d') == std_well and stage2before:
                         print('Stage2')
                         # Add 40x gain scan in std well to CAM list.
-                        print(call_server(stage2_com, '', working_dir, host))
+                        sock.send(stage2_com)
                         camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
                         # Start CAM scan.
-                        print(call_server(camstart, '', working_dir, host))
+                        sock.send(camstart)
                         stage2before = False
                     # Find sec_std_path.
                     elif (well.get_name('U\d\d--V\d\d') == std_well and
@@ -548,17 +587,16 @@ def main(argv):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         #cam_end_list[i]
-        print(call_server(com, '', working_dir, host))
-        time.sleep(8)
+        sock.send(com)
         # Start scan.
-        print(call_server(start_com, '', working_dir, host))
-        time.sleep(8)
+        sock.send(start_com)
+        time.sleep(3)
         # Start CAM scan.
-        print(call_server(camstart, end_com_list[i], working_dir, host))
-        time.sleep(8)
+        sock.send(camstart)
+        sock.recv_timeout(40, end_com_list[i])
         # Stop scan
-        print(call_server(stop_com, '', working_dir, host))
-        time.sleep(8)
+        sock.send(stop_com)
+        time.sleep(3)
 
 if __name__ =='__main__':
     main(sys.argv[1:])
