@@ -1,6 +1,7 @@
 import socket
 import sys
 import time
+import re
 
 class Client(object):
     """Client class
@@ -25,6 +26,8 @@ class Client(object):
         """Receives reply from server, with a timeout and test string.
         When the test string is received, the listening loop ends."""
         
+        test = re.compile(test)
+        
         # make socket non blocking
         self.sock.setblocking(False)
  
@@ -35,7 +38,7 @@ class Client(object):
      
         # start time
         begin=time.time()
-        while test not in joined_data:
+        while not test.match(joined_data):
             # if data exist, then break after timeout
             if total_data and time.time()-begin > timeout:
                 break
@@ -75,7 +78,7 @@ class Client(object):
             self.sock.connect(server_address)
 
             # Receive welcome reply from server
-            self.recv_timeout(3, 'Welcome')
+            self.recv_timeout(3, 'Welcome.*')
 
         except socket.error:
             print 'Failed to connect to socket.'
@@ -100,8 +103,10 @@ class Client(object):
                     line = line + '\r\n'
                 print 'sending "%s"' % line
                 self.sock.send(line)
+                self.recv_timeout(20, '.*'+line[:-2]+'.*')
                 time.sleep(0.2)
-                self.recv_timeout(20, line[:-2])
+                if 'pmt' in line:
+                    time.sleep(3)
 
         except socket.error:
             #Send failed

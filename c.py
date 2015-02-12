@@ -304,7 +304,8 @@ def main(argv):
                     well = Directory(well_path)
                     #testing
                     #print(well.get_name('U\d\d--V\d\d'))
-                    if well.get_name('U\d\d--V\d\d') == std_well and stage2before:
+                    if (well.get_name('U\d\d--V\d\d') == std_well and
+                        stage2before):
                         print('Stage2')
                         # Add 40x gain scan in std well to CAM list.
                         sock.send(stage2_com)
@@ -473,7 +474,9 @@ def main(argv):
         print('Stage3')
         camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
         for gain, v in green_sorted.iteritems():
-            channels = [gain, medians['blue'], medians['yellow'],
+            channels = [gain,
+                        medians['blue'],
+                        medians['yellow'],
                         medians['red']
                         ]
             # Set gain in the four channels.
@@ -511,7 +514,7 @@ def main(argv):
                                           '0',
                                           '0'
                                           )
-                        end_com = well+'.+X0'+str(j)+'--Y0'+str(i)
+                        end_com = '.+CAM.+'+well+'.+X0'+str(j)+'--Y0'+str(i)+'.+C31.+'
             # Remove the last line, should be empty, of a command string.
             com = com[:com.rfind('\n')]
             # Store the commands in lists.
@@ -562,7 +565,7 @@ def main(argv):
                                       dx,
                                       dy
                                       )
-                    end_com = '.+CAM.+'+well+'.+X0'+str(j)+'--Y0'+str(i)
+                    end_com = '.+CAM.+'+well+'.+X0'+str(j)+'--Y0'+str(i)+'.+C31.+'
             old_well_no = well_no
             # Check if well no 1-4 or 5-8 etc and continuous.
             if ((round((float(well_no)+1)/4) % 2 != odd_even) &
@@ -587,14 +590,18 @@ def main(argv):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         #cam_end_list[i]
+        print(com)
         sock.send(com)
         # Start scan.
+        print(start_com)
         sock.send(start_com)
         time.sleep(3)
         # Start CAM scan.
+        print(camstart)
         sock.send(camstart)
         sock.recv_timeout(40, end_com_list[i])
         # Stop scan
+        print(stop_com)
         sock.send(stop_com)
         time.sleep(3)
 
