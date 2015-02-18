@@ -22,11 +22,15 @@ class Client(object):
             sys.exit()
         print 'Socket Created'
 
+    def compare(self, string, sub):
+        if sub in string:
+            return True
+        else:
+            return False
+
     def recv_timeout(self, timeout, test):
-        """Receives reply from server, with a timeout and test string.
-        When the test string is received, the listening loop ends."""
-        
-        test = re.compile(test)
+        """Receives reply from server, with a timeout and a list of strings
+        to test. When the all test strings are received, the listening loop ends."""
         
         # make socket non blocking
         self.sock.setblocking(False)
@@ -38,7 +42,8 @@ class Client(object):
      
         # start time
         begin=time.time()
-        while not test.match(joined_data):
+        while not ((all(map(self.compare, [data for t in test], test))) or
+                   ('scanfinished' in data)):
             # if data exist, then break after timeout
             if total_data and time.time()-begin > timeout:
                 break
@@ -78,7 +83,7 @@ class Client(object):
             self.sock.connect(server_address)
 
             # Receive welcome reply from server
-            self.recv_timeout(3, 'Welcome.*')
+            self.recv_timeout(3, 'Welcome')
 
         except socket.error:
             print 'Failed to connect to socket.'
@@ -103,10 +108,10 @@ class Client(object):
                     line = line + '\r\n'
                 print 'sending "%s"' % line
                 self.sock.send(line)
-                self.recv_timeout(20, '.*'+line[:-2]+'.*')
-                time.sleep(0.2)
+                self.recv_timeout(20, line[:-2])
+                time.sleep(0.3)
                 if 'pmt' in line:
-                    time.sleep(3)
+                    time.sleep(5)
 
         except socket.error:
             #Send failed

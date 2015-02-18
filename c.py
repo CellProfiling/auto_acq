@@ -439,7 +439,6 @@ def main(argv):
     end_com_list = []
     cam_end_list = []
 
-    end_com = ''
     cam_end = ''
     odd_even = 0
     wells = defaultdict()
@@ -514,7 +513,11 @@ def main(argv):
                                           '0',
                                           '0'
                                           )
-                        end_com = '.+CAM.+'+well+'.+X0'+str(j)+'--Y0'+str(i)+'.+C31.+'
+                        end_com = []
+                        end_com.append('CAM')
+                        end_com.append(well)
+                        end_com.append('E03')
+                        end_com.append('X0'+str(j)+'--Y0'+str(i))
             # Remove the last line, should be empty, of a command string.
             com = com[:com.rfind('\n')]
             # Store the commands in lists.
@@ -565,7 +568,11 @@ def main(argv):
                                       dx,
                                       dy
                                       )
-                    end_com = '.+CAM.+'+well+'.+X0'+str(j)+'--Y0'+str(i)+'.+C31.+'
+                    end_com = []
+                    end_com.append('CAM')
+                    end_com.append(well)
+                    end_com.append('E03')
+                    end_com.append('X0'+str(j)+'--Y0'+str(i))
             old_well_no = well_no
             # Check if well no 1-4 or 5-8 etc and continuous.
             if ((round((float(well_no)+1)/4) % 2 != odd_even) &
