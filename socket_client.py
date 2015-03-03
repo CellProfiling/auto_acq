@@ -30,7 +30,7 @@ class Client(object):
 
     def recv_timeout(self, timeout, test):
         """Receives reply from server, with a timeout and a list of strings
-        to test. When the all test strings are received, the listening loop ends."""
+        to test. When all test strings are received, the listening loop ends."""
         
         # make socket non blocking
         self.sock.setblocking(False)

@@ -72,8 +72,6 @@ class Directory(Base):
                 file_list.append(os.path.join(root, filename))
         return file_list
 
-        #self.commands = commands
-
     def base_type(self):
         """"Return a string representing the type of object this is."""
         return 'directory'
@@ -98,7 +96,7 @@ class File(Base):
     def get_name(self, regex):
         """Return the name of the file, matching regex."""
         path = self.path
-        return super(My_image, self).get_name(path, regex)
+        return super(File, self).get_name(path, regex)
 
     def base_type(self):
         """"Return a string representing the type of object this is."""
