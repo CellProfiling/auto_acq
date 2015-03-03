@@ -7,6 +7,8 @@ import time
 import csv
 from lxml import etree
 import numpy
+from scipy.misc import imread, imsave
+from scipy.ndimage.measurements import histogram
 from itertools import  combinations
 from itertools import groupby
 from collections import OrderedDict
@@ -85,57 +87,9 @@ def cam_com(_job, _well, _field, _dx, _dy):
             )
     return _com
 
-#def call_server(_command, _end_str, _w_dir, _host):
-#    """Function to call the server."""
-#    # Change this function, or replace it with calling the socket object.
-#    try:
-#        print('Sending to server...')
-#        output = subprocess.check_output(['python',
-#                                          _w_dir+'/socket_client.py',
-#                                          _command,
-#                                          _end_str,
-#                                          _host
-#                                          ])
-#    except OSError as e:
-#        print('Execution failed:', e)
-#        sys.exit(2)
-#    except subprocess.CalledProcessError as e:
-#        print('Subprocess returned a non-zero exit status:', e)
-#        sys.exit(2)
-#    else:
-#        return output
-
-def call_imagej(path_to_fiji, imagej_macro, im_dir):
-    """Function to call ImageJ (Fiji). Returns output from ImageJ."""
-    
-    try:
-        output = subprocess.check_output([path_to_fiji,
-                                          '--headless',
-                                          '-macro',
-                                          imagej_macro,
-                                          im_dir
-                                          ])
-    except OSError as e:
-        print('Execution failed:', e)
-        sys.exit(2)
-    except subprocess.CalledProcessError as e:
-        print('Subprocess returned a non-zero exit status:', e)
-        sys.exit(2)
-    else:
-        return output
-
-def cut_path(files, regex):
-    """Function to cut specific part of the end of a file name."""
-    # Replace with function in control class.
-    cut_paths = []
-    for f in files:
-        cut_paths.append(re.sub(regex, '', f))
-    return cut_paths
-
-def process_output(_well, output):
+def process_output(_well, output, dl):
     """Function to process output from the R scripts."""
     
-    dl = []
     dl.append({'well': _well,
               'green': output.split()[0],
               'blue': output.split()[1],
@@ -144,11 +98,10 @@ def process_output(_well, output):
               })
     return dl
 
-def write_csv(path, dict_list):
+def write_csv(path, dict_list, keys):
     """Function to write a list of dicts as a csv file."""
     
     with open(path, 'wb') as f:
-        keys = ['well', 'green', 'blue', 'yellow', 'red']
         w = csv.DictWriter(f, keys)
         w.writeheader()
         w.writerows(dict_list)
@@ -214,9 +167,7 @@ def main(argv):
     # Paths
     first_r_script = os.path.normpath(working_dir+'/gain.r')
     sec_r_script = os.path.normpath(working_dir+'/gain_change_objectives.r')
-    path_to_fiji = os.path.normpath('ImageJ-linux64')
-    imagej_macro = os.path.normpath(working_dir+
-                                    '/do_max_proj_and_calc_histo_arg.ijm')
+    
     # Job names
     af_job_10x = 'af10x'
     af_job_40x = 'af40x'
@@ -292,18 +243,13 @@ def main(argv):
                 child_dir = Directory(im_dir_child)
                 im_paths = sorted(child_dir.get_files('*.tif'))
                 if im_paths:
-                    image = File(im_paths[0])
-                    obj_serial = image.serial_no()
-                    #testing
-                    print(obj_serial)
-                    field_path = image.get_dir()
+                    img = File(im_paths[0])
+                    field_path = img.get_dir()
                     field = Directory(field_path)
                     well_path = field.get_dir()
                     #testing
                     print(well_path)
                     well = Directory(well_path)
-                    #testing
-                    #print(well.get_name('U\d\d--V\d\d'))
                     if (well.get_name('U\d\d--V\d\d') == std_well and
                         stage2before):
                         print('Stage2')
@@ -315,32 +261,50 @@ def main(argv):
                         stage2before = False
                     # Find sec_std_path.
                     elif (well.get_name('U\d\d--V\d\d') == std_well and
-                          obj_serial != '11506505'):
+                          'CAM' in well_path):
                         sec_std_path = well_path
-                    #testing
-                    #print(len(well.get_all_files('*.tif')))
                     if ((len(well.get_all_files('*.tif')) == 66) &
                         (len(well.get_all_files('*.csv')) == 0)):
                         fin_well_paths.append(well_path)
-                        #testing
-                        #print(well.get_name('U\d\d--V\d\d'))                    
-                        #print(field.get_name('X\d\d--Y\d\d'))
                         if (well.get_name('U\d\d--V\d\d') == last_well and
                             field.get_name('X\d\d--Y\d\d') == last_field):
-                            if obj_serial == '11506505':
+                            if 'CAM' not in well_path:
                                 stage1after = True
-                        if obj_serial != '11506505':
+                        if 'CAM' in well_path:
                             stage2after = True
-        except etree.XMLSyntaxError as e:
-            print('XML error:', e)
-            sys.exit(2)
         except IndexError as e:
             print('No images in this directory... but maybe in the next?' , e)
         fin_well_paths = sorted(set(fin_well_paths))
+        print('Making max projections and calculating histograms')
         for well_path in fin_well_paths:
             ptime = time.time()
-            print('Starting ImageJ...')
-            print(call_imagej(path_to_fiji, imagej_macro, well_path))
+            well = Directory(well_path)
+            well_name = well.get_name('U\d\d--V\d\d')
+            img_paths = sorted(well.get_all_files('*.tif'))
+            channels = []
+            for img_path in img_paths:
+                channel = File(img_path).get_name('C\d\d')
+                channels.append(channel)
+                channels = sorted(set(channels))
+            # Do we need to rename finished images?
+            for channel in channels:
+                images = []
+                for img_path in img_paths:
+                    if channel == File(img_path).get_name('C\d\d'):
+                        images.append(imread(img_path))
+                max_img = np.maximum.reduce(images)
+                histo = histogram(max_img, 0, 65535, 256)
+                rows = []
+                for b, count in enumerate(histo):
+                    rows.append({'bin': b, 'count': count})
+                write_csv(os.path.normpath(well_path+'/maxprojs/'+well_name+
+                                           '--'+channel+'.csv'),
+                          rows,
+                          ['bin', 'count']
+                          )
+                #imsave(well_path+'/maxprojs/'+well_name+'--'+channel+'.tif',
+                #       max_img
+                #       )
             print(str(time.time()-ptime)+' secs')
             begin = time.time()
         print('Sleeping 5 secs...')
@@ -361,37 +325,49 @@ def main(argv):
                 plate_base_path = p
                 searching = False
         search_dir = Directory(child_paths[0])
-    csv_dir = Directory(plate_base_path)
-    # Get all csv files in top 'slide--S00' directory.
-    csv_paths = csv_dir.get_all_files('*.csv')
-    # Get all well names corresponding to all csv files and find first_std_path.
-    fin_wells = []
-    for p in csv_paths:
-        csv_file = File(p)
-        well = Directory(Directory(csv_file.get_dir()).get_dir())
-        fin_wells.append(well.get_name('U\d\d--V\d\d'))
-        if well.get_name('U\d\d--V\d\d') == std_well:
-            first_std_path = well.path
+
     try:
-        first_std_dir = Directory(first_std_path)
         sec_std_dir = Directory(sec_std_path)
     except UnboundLocalError as e:
         print('No objective standards found!')
         sys.exit(2)
-    # Get all csv files in first standard directory.
-    first_std_csv_paths = first_std_dir.get_all_files('*.csv')
+
+    csv_dir = Directory(plate_base_path)
+    # Get all csv files in top 'slide--S00' directory.
+    csv_paths = csv_dir.get_all_files('*.csv')
     # Get all csv files in second standard directory.
     sec_std_csv_paths = sec_std_dir.get_all_files('*.csv')
-    # Get the filebases from the csv paths.
-    filebases = cut_path(csv_paths, 'C\d\d.+$')
-    first_std_fbs = cut_path(first_std_csv_paths, 'C\d\d.+$')
-    sec_std_fbs = cut_path(sec_std_csv_paths, 'C\d\d.+$')
+    # lists to store filebases of csv-files
+    filebases = []
+    first_std_fbs = []
+    sec_std_fbs = []
+    # Get all well names corresponding to all csv files under
+    # top 'slide--S00' directory, find first_std_path and get csv base names.
+    fin_wells = []
+    for csv_list in [csv_paths, sec_std_csv_paths]:    
+        for p in csv_list:
+            csv_file = File(p)
+            # Get the filebases from the csv paths.
+            filebase = csv_file.cut_path('C\d\d.+$')
+            well = Directory(Directory(csv_file.get_dir()).get_dir())
+            if csv_list == csv_paths:
+                filebases.append(filebase)
+                fin_wells.append(well.get_name('U\d\d--V\d\d'))
+                if well.get_name('U\d\d--V\d\d') == std_well:
+                    first_std_path = well.path
+                    first_std_fbs.append(filebase)
+            if csv_list == sec_std_csv_paths:
+                sec_std_fbs.append(filebase)
+    
     # Get a unique set of filebases from the csv paths.
     filebases = sorted(set(filebases))
     first_std_fbs = sorted(set(first_std_fbs))
     sec_std_fbs = sorted(set(sec_std_fbs))
     # Get a unique set of names of the experiment wells.
     fin_wells = sorted(set(fin_wells))
+
+    first_gain_dicts = []
+    sec_gain_dicts = []
 
     # For all experiment wells run R script
     for i in range(len(filebases)):
@@ -406,7 +382,7 @@ def main(argv):
                                                 filebases[i],
                                                 first_initialgains_file
                                                 ])
-            first_gain_dicts = process_output(well, r_output)
+            first_gain_dicts = process_output(well, r_output, first_gain_dicts)
             input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
                             r_output.split()[2]+' '+r_output.split()[3]+'')
             r_output = subprocess.check_output(['Rscript',
@@ -427,12 +403,14 @@ def main(argv):
             sys.exit()
         # testing
         print(r_output)
-        sec_gain_dicts = process_output(well, r_output)
+        sec_gain_dicts = process_output(well, r_output, sec_gain_dicts)
 
     write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'),
-              first_gain_dicts)
+              first_gain_dicts,
+              ['well', 'green', 'blue', 'yellow', 'red'])
     write_csv(os.path.normpath(working_dir+'/sec_output_gains.csv'),
-              sec_gain_dicts)
+              sec_gain_dicts,
+              ['well', 'green', 'blue', 'yellow', 'red'])
 
     # Lists for storing command strings.
     com_list = []
