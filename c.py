@@ -213,7 +213,7 @@ def main(argv):
     stop_com = '/cli:1 /app:matrix /cmd:stopscan'
     
     # Create imaging directory oject
-    im_dir = Directory(imaging_dir)
+    img_dir = Directory(imaging_dir)
 
     # Create socket
     sock = Client()
@@ -228,6 +228,11 @@ def main(argv):
     # start time
     begin = time.time()
 
+    filebases = []
+    first_std_fbs = []
+    sec_std_fbs = []
+    fin_wells = []
+
     while stage1:
         #testing
         print('stage1')
@@ -238,20 +243,19 @@ def main(argv):
         print('Searching for images...')
         fin_well_paths = []
         try:
-            im_dir_children = im_dir.get_all_children()
-            for im_dir_child in im_dir_children:
-                child_dir = Directory(im_dir_child)
-                im_paths = sorted(child_dir.get_files('*.tif'))
-                if im_paths:
-                    img = File(im_paths[0])
-                    field_path = img.get_dir()
-                    field = Directory(field_path)
-                    well_path = field.get_dir()
-                    #testing
-                    print(well_path)
-                    well = Directory(well_path)
-                    if (well.get_name('U\d\d--V\d\d') == std_well and
-                        stage2before):
+            img_paths = img_dir.get_all_files('*.tif')
+            for img_path in img_paths:
+                img = File(img_path)
+                field_path = img.get_dir()
+                field = Directory(field_path)
+                well_path = field.get_dir()
+                #testing
+                print(well_path)
+                well = Directory(well_path)
+                if (well.get_name('U\d\d--V\d\d') == std_well and
+                      'CAM' not in well_path):
+                    first_std_path = well_path
+                    if stage2before:
                         print('Stage2')
                         # Add 40x gain scan in std well to CAM list.
                         sock.send(stage2_com)
@@ -259,17 +263,17 @@ def main(argv):
                         # Start CAM scan.
                         sock.send(camstart)
                         stage2before = False
-                    # Find sec_std_path.
-                    elif (well.get_name('U\d\d--V\d\d') == std_well and
-                          'CAM' in well_path):
-                        sec_std_path = well_path
-                    if ((len(well.get_all_files('*.tif')) == 66) &
-                        (len(well.get_all_files('*.csv')) == 0)):
-                        fin_well_paths.append(well_path)
-                        if (well.get_name('U\d\d--V\d\d') == last_well and
-                            field.get_name('X\d\d--Y\d\d') == last_field):
-                            if 'CAM' not in well_path:
-                                stage1after = True
+                # Find sec_std_path.
+                if (well.get_name('U\d\d--V\d\d') == std_well and
+                      'CAM' in well_path):
+                    sec_std_path = well_path
+                if ((len(well.get_all_files('*.tif')) == 66) &
+                    (len(well.get_all_files('*.csv')) == 0)):
+                    fin_well_paths.append(well_path)
+                    if (well.get_name('U\d\d--V\d\d') == last_well and
+                        field.get_name('X\d\d--Y\d\d') == last_field):
+                        if 'CAM' not in well_path:
+                            stage1after = True
                         if 'CAM' in well_path:
                             stage2after = True
         except IndexError as e:
@@ -297,11 +301,18 @@ def main(argv):
                 rows = []
                 for b, count in enumerate(histo):
                     rows.append({'bin': b, 'count': count})
-                write_csv(os.path.normpath(well_path+'/maxprojs/'+well_name+
-                                           '--'+channel+'.csv'),
-                          rows,
-                          ['bin', 'count']
-                          )
+                p = well_path+'/maxprojs/'+well_name+'--'+channel+'.csv'
+                write_csv(os.path.normpath(p), rows, ['bin', 'count'])
+                csv_file = File(p)
+                # Get the filebase from the csv path.
+                filebase = csv_file.cut_path('C\d\d.+$')
+                if well_path != sec_std_path:
+                    filebases.append(filebase)
+                    fin_wells.append(well.get_name('U\d\d--V\d\d'))
+                    if well_path == first_std_path:
+                        first_std_fbs.append(filebase)
+                else:
+                    sec_std_fbs.append(filebase)
                 #imsave(well_path+'/maxprojs/'+well_name+'--'+channel+'.tif',
                 #       max_img
                 #       )
@@ -311,53 +322,6 @@ def main(argv):
         time.sleep(5)
         if stage1after and stage2after:
             stage1 = False
-
-    # Find the top 'slide--S00' directory.
-    searching = True
-    search_dir = im_dir
-    while searching:
-        child_paths = sorted(search_dir.get_children())
-        for p in child_paths:
-            #testing
-            print(p)
-            search_dir = Directory(p)
-            if search_dir.get_name('slide--S\d\d') == 'slide--S00':
-                plate_base_path = p
-                searching = False
-        search_dir = Directory(child_paths[0])
-
-    try:
-        sec_std_dir = Directory(sec_std_path)
-    except UnboundLocalError as e:
-        print('No objective standards found!')
-        sys.exit(2)
-
-    csv_dir = Directory(plate_base_path)
-    # Get all csv files in top 'slide--S00' directory.
-    csv_paths = csv_dir.get_all_files('*.csv')
-    # Get all csv files in second standard directory.
-    sec_std_csv_paths = sec_std_dir.get_all_files('*.csv')
-    # lists to store filebases of csv-files
-    filebases = []
-    first_std_fbs = []
-    sec_std_fbs = []
-    # Get all well names corresponding to all csv files under
-    # top 'slide--S00' directory, find first_std_path and get csv base names.
-    fin_wells = []
-    for csv_list in [csv_paths, sec_std_csv_paths]:    
-        for p in csv_list:
-            csv_file = File(p)
-            # Get the filebases from the csv paths.
-            filebase = csv_file.cut_path('C\d\d.+$')
-            well = Directory(Directory(csv_file.get_dir()).get_dir())
-            if csv_list == csv_paths:
-                filebases.append(filebase)
-                fin_wells.append(well.get_name('U\d\d--V\d\d'))
-                if well.get_name('U\d\d--V\d\d') == std_well:
-                    first_std_path = well.path
-                    first_std_fbs.append(filebase)
-            if csv_list == sec_std_csv_paths:
-                sec_std_fbs.append(filebase)
     
     # Get a unique set of filebases from the csv paths.
     filebases = sorted(set(filebases))
@@ -415,9 +379,7 @@ def main(argv):
     # Lists for storing command strings.
     com_list = []
     end_com_list = []
-    cam_end_list = []
 
-    cam_end = ''
     odd_even = 0
     wells = defaultdict()
     gains = defaultdict(list)
@@ -485,12 +447,6 @@ def main(argv):
                                        '0'
                                        )+
                                '\n')
-                        cam_end = cam_com(pattern_40x,
-                                          well,
-                                          'X0'+str(j)+'--Y0'+str(i),
-                                          '0',
-                                          '0'
-                                          )
                         end_com = []
                         end_com.append('CAM')
                         end_com.append(well)
@@ -500,7 +456,6 @@ def main(argv):
             com = com[:com.rfind('\n')]
             # Store the commands in lists.
             com_list.append(com)
-            cam_end_list.append(cam_end)
             end_com_list.append(end_com)
 
     if stage4:
@@ -540,12 +495,6 @@ def main(argv):
                                    dy
                                    )+
                            '\n')
-                    cam_end = cam_com(pattern_63x[pattern],
-                                      well,
-                                      'X0'+str(j)+'--Y0'+str(i),
-                                      dx,
-                                      dy
-                                      )
                     end_com = []
                     end_com.append('CAM')
                     end_com.append(well)
@@ -567,14 +516,12 @@ def main(argv):
                 # Remove the last line, should be empty, of a command string.
                 com = com[:com.rfind('\n')]
                 com_list.append(com)
-                cam_end_list.append(cam_end)
                 end_com_list.append(end_com)
                 com = ''
 
     for i,com in enumerate(com_list):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
-        #cam_end_list[i]
         print(com)
         sock.send(com)
         # Start scan.
