@@ -57,26 +57,41 @@ function addToArray(value, array, position) {
 dirChosen = getDirectory("Choose a Directory ");
 topDir = dirChosen;
 
-path = topDir+"pngs/";
+path = topDir+"combos/";
 File.makeDirectory(path);
 
 fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
+fileArray = listFiles(dirChosen, topDir, ".+green\.tif$", fileArray);
 
 for (i = 0; i < fileArray.length; i++) {
 
 	print(fileArray[i]);
 	open(fileArray[i]);
-	imTIFName = getInfo("image.filename");
-	imPNGName = replace(imTIFName, "tif", "png");
+	imDir = getInfo("image.directory");
+	imGreenName = getInfo("image.filename");
+	imBlueName = replace(imGreenName, "green", "blue");
+	imRedName = replace(imGreenName, "green", "red");
+	imYellowName = replace(imGreenName, "green", "yellow");
+	imRedGreenName = replace(imGreenName, "green.tif", "red_green.png");
+	imBlueRedGreenName = replace(imGreenName, "green.tif", "blue_red_green.png");
+	//imPNGName = replace(imFileName, tif, png);
 
 	if ((2048 != getWidth()) || (2048 != getHeight())) {
 		close();
 	} else {
-	
-	run("8-bit");
-	saveAs("PNG", path+imPNGName);
-	close("*");
+		run("Green");
+		//print(imFileName);
+		//print(imRedName);
+		open(imDir+imRedName);
+		run("Red");
+		run("Merge Channels...", "c1=imRedName c2=imGreenName keep");
+		saveAs("PNG", path+imRedGreenName);
+		close();
+		open(imDir+imBlueName);
+		run("Blue");
+		run("Merge Channels...", "c1=imRedName c2=imGreenName c3=imBlueName keep");
+		saveAs("PNG", path+imBlueRedGreenName);
+		close("*");
 	}
 }
 print("Analysis finished!");

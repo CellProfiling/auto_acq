@@ -57,15 +57,15 @@ function addToArray(value, array, position) {
 dirChosen = getDirectory("Choose a Directory ");
 topDir = dirChosen;
 
-path = topDir+"pngs/";
-File.makeDirectory(path);
+pathLUTs = topDir+"pngs/";
+File.makeDirectory(pathLUTs);
 
 fileArray = newArray();
 fileArray = listFiles(dirChosen, topDir, ".+\.tif$", fileArray);
 
 for (i = 0; i < fileArray.length; i++) {
 
-	print(fileArray[i]);
+	//print(fileArray[i]);
 	open(fileArray[i]);
 	imTIFName = getInfo("image.filename");
 	imPNGName = replace(imTIFName, "tif", "png");
@@ -73,9 +73,20 @@ for (i = 0; i < fileArray.length; i++) {
 	if ((2048 != getWidth()) || (2048 != getHeight())) {
 		close();
 	} else {
+
+	if (matches(fileArray[i], ".+green\.tif$")) {
+		run("Green");
+	} else if (matches(fileArray[i], ".+blue\.tif$")) {
+		run("Blue");
+	} else if (matches(fileArray[i], ".+yellow\.tif$")) {
+		run("Yellow");
+	} else if (matches(fileArray[i], ".+red\.tif$")) {
+		run("Red");
+	}
 	
 	run("8-bit");
-	saveAs("PNG", path+imPNGName);
+	print(pathLUTs+imPNGName);
+	saveAs("PNG", pathLUTs+imPNGName);
 	close("*");
 	}
 }
