@@ -208,7 +208,6 @@ def main(argv):
                   cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
                   cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0'))
-    stage2_end = ''
     start_com = '/cli:1 /app:matrix /cmd:startscan'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan'
     
@@ -228,6 +227,7 @@ def main(argv):
     # start time
     begin = time.time()
 
+    # lists for keeping csv file base path names and corresponding well names
     filebases = []
     first_std_fbs = []
     sec_std_fbs = []
@@ -252,6 +252,8 @@ def main(argv):
                 #testing
                 print(well_path)
                 well = Directory(well_path)
+                well_img_paths = sorted(well.get_all_files('*.tif'))
+                # Find first_std_path.
                 if (well.get_name('U\d\d--V\d\d') == std_well and
                       'CAM' not in well_path):
                     first_std_path = well_path
@@ -267,9 +269,40 @@ def main(argv):
                 if (well.get_name('U\d\d--V\d\d') == std_well and
                       'CAM' in well_path):
                     sec_std_path = well_path
-                if ((len(well.get_all_files('*.tif')) == 66) &
+                if ((len(well_img_paths) == 66) &
                     (len(well.get_all_files('*.csv')) == 0)):
-                    fin_well_paths.append(well_path)
+                    ptime = time.time()
+                    print('Making max projections and calculating histograms')
+                    channels = []
+                    for img_path in well_img_paths:
+                        channel = File(img_path).get_name('C\d\d')
+                        channels.append(channel)
+                        channels = sorted(set(channels))
+                    # Do we need to rename finished images?
+                    for channel in channels:
+                        images = []
+                        for img_path in well_img_paths:
+                            if channel == File(img_path).get_name('C\d\d'):
+                                images.append(imread(img_path))
+                        max_img = np.maximum.reduce(images)
+                        histo = histogram(max_img, 0, 65535, 256)
+                        rows = []
+                        for b, count in enumerate(histo):
+                            rows.append({'bin': b, 'count': count})
+                        p = well_path+'/maxprojs/'+well_name+'--'+channel+'.csv'
+                        write_csv(os.path.normpath(p), rows, ['bin', 'count'])
+                        csv_file = File(p)
+                        # Get the filebase from the csv path.
+                        filebase = csv_file.cut_path('C\d\d.+$')
+                        if well_path != sec_std_path:
+                            filebases.append(filebase)
+                            fin_wells.append(well.get_name('U\d\d--V\d\d'))
+                            if well_path == first_std_path:
+                                first_std_fbs.append(filebase)
+                        else:
+                            sec_std_fbs.append(filebase)
+                    print(str(time.time()-ptime)+' secs')
+                    begin = time.time()
                     if (well.get_name('U\d\d--V\d\d') == last_well and
                         field.get_name('X\d\d--Y\d\d') == last_field):
                         if 'CAM' not in well_path:
@@ -277,47 +310,7 @@ def main(argv):
                         if 'CAM' in well_path:
                             stage2after = True
         except IndexError as e:
-            print('No images in this directory... but maybe in the next?' , e)
-        fin_well_paths = sorted(set(fin_well_paths))
-        print('Making max projections and calculating histograms')
-        for well_path in fin_well_paths:
-            ptime = time.time()
-            well = Directory(well_path)
-            well_name = well.get_name('U\d\d--V\d\d')
-            img_paths = sorted(well.get_all_files('*.tif'))
-            channels = []
-            for img_path in img_paths:
-                channel = File(img_path).get_name('C\d\d')
-                channels.append(channel)
-                channels = sorted(set(channels))
-            # Do we need to rename finished images?
-            for channel in channels:
-                images = []
-                for img_path in img_paths:
-                    if channel == File(img_path).get_name('C\d\d'):
-                        images.append(imread(img_path))
-                max_img = np.maximum.reduce(images)
-                histo = histogram(max_img, 0, 65535, 256)
-                rows = []
-                for b, count in enumerate(histo):
-                    rows.append({'bin': b, 'count': count})
-                p = well_path+'/maxprojs/'+well_name+'--'+channel+'.csv'
-                write_csv(os.path.normpath(p), rows, ['bin', 'count'])
-                csv_file = File(p)
-                # Get the filebase from the csv path.
-                filebase = csv_file.cut_path('C\d\d.+$')
-                if well_path != sec_std_path:
-                    filebases.append(filebase)
-                    fin_wells.append(well.get_name('U\d\d--V\d\d'))
-                    if well_path == first_std_path:
-                        first_std_fbs.append(filebase)
-                else:
-                    sec_std_fbs.append(filebase)
-                #imsave(well_path+'/maxprojs/'+well_name+'--'+channel+'.tif',
-                #       max_img
-                #       )
-            print(str(time.time()-ptime)+' secs')
-            begin = time.time()
+            print('No images yet... but maybe later?' , e)
         print('Sleeping 5 secs...')
         time.sleep(5)
         if stage1after and stage2after:
@@ -389,6 +382,8 @@ def main(argv):
     dx = ''
     dy = ''
     pattern = 0
+    start_of_part = False
+    prev_well = ''
 
     for c in ['green', 'blue', 'yellow', 'red']:
         mlist = []
@@ -408,118 +403,99 @@ def main(argv):
                 mlist.append(int(d[c]))
                 medians[c] = int(numpy.median(mlist))
 
-    # Fix this mess of reps!
     if stage3:
         print('Stage3')
         camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
-        for gain, v in green_sorted.iteritems():
-            channels = [gain,
-                        medians['blue'],
-                        medians['yellow'],
-                        medians['red']
-                        ]
-            # Set gain in the four channels.
-            for i,c in enumerate(channels):
-                if i < 2:
-                    detector = '1'
-                    job = job_40x[i]
-                if i >= 2:
-                    detector = '2'
-                    job = job_40x[i-1]
-                com = com + gain_com(job, detector, str(c)) + '\n'
-                #testing
-                print(channels)
-            for well in v:
-                print(well)
-                for i in range(2):
-                    for j in range(2):
-                        # Enable and add 40x job in well to CAM list.
-                        com = (com +
-                               enable_com(well,
-                                          'X0'+str(j)+'--Y0'+str(i),
-                                          'true'
-                                          )+
-                               '\n'+
-                               cam_com(pattern_40x,
-                                       well,
-                                       'X0'+str(j)+'--Y0'+str(i),
-                                       '0',
-                                       '0'
-                                       )+
-                               '\n')
-                        end_com = []
-                        end_com.append('CAM')
-                        end_com.append(well)
-                        end_com.append('E03')
-                        end_com.append('X0'+str(j)+'--Y0'+str(i))
-            # Remove the last line, should be empty, of a command string.
-            com = com[:com.rfind('\n')]
-            # Store the commands in lists.
-            com_list.append(com)
-            end_com_list.append(end_com)
-
+        channels = [gain, medians['blue'], medians['yellow'], medians['red']]
+        stage_dict = green_sorted
+        job_list = job_40x
+        pattern_list = pattern_40x
+        enable = 'true'
     if stage4:
         print('Stage4')
         camstart = camstart_com(af_job_63x, afr_63x, afs_63x)
+        channels = range(4)
         wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
+        stage_dict = wells
         old_well_no = wells.items()[0][0]-1
-        for well_no, well in wells.iteritems():
-            channels = range(4)
-            for i,c in enumerate(channels):
-                if i < 2:
-                    detector = '1'
-                    job = job_63x[i]
-                if i >= 2:
-                    detector = '2'
-                    job = job_63x[i-1]
-                com = com + gain_com(job, detector, str(gains[well][i])) + '\n'
-            for i in range(2):
-                for j in range(2):
-                    # Enable and add 63x job in well to CAM list.
-                    # Add coords from file (arg) per well.
-                    # Only enable selected wells from file (arg)
-                    fov = well+'--X0'+str(j)+'--Y0'+str(i)
-                    if fov in coords.keys():
-                        enable = 'true'
-                        dx = coords[fov][0]
-                        dy = coords[fov][1]
-                    else:
-                        enable = 'false'
-                    com = (com +
-                           enable_com(well, 'X0'+str(j)+'--Y0'+str(i), enable)+
-                           '\n'+
-                           cam_com(pattern_63x[pattern],
-                                   well,
-                                   'X0'+str(j)+'--Y0'+str(i),
-                                   dx,
-                                   dy
-                                   )+
-                           '\n')
-                    end_com = []
-                    end_com.append('CAM')
-                    end_com.append(well)
-                    end_com.append('E03')
-                    end_com.append('X0'+str(j)+'--Y0'+str(i))
-            old_well_no = well_no
+        job_list = job_63x
+        pattern_list = pattern_63x[pattern]
+    for k, v in stage_dict.iteritems():
+        if start_of_part:
+            # Store the commands in lists, after one well at least.
+            com_list.append(com)
+            end_com_list.append(end_com)
+            com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
+        for i, c in enumerate(channels):
+            if stage3:
+                set_gain = str(c)
+            if stage4:
+                set_gain = str(gains[v][i])
+            if i < 2:
+                detector = '1'
+                job = job_list[i]
+            if i >= 2:
+                detector = '2'
+                job = job_list[i-1]
+            com = com + gain_com(job, detector, set_gain) + '\n'
+        if stage3:
+            start_of_part = True
+        if stage4:
             # Check if well no 1-4 or 5-8 etc and continuous.
-            if ((round((float(well_no)+1)/4) % 2 != odd_even) &
-                (old_well_no + 1 == well_no)):
-                pattern =+ 1
-            else:
+            if ((round((float(k)+1)/4) % 2 == odd_even) |
+                (old_well_no + 1 != k)):
+                pattern = 0
+                start_of_part = True
                 if odd_even == 0:
                     odd_even = 1
                 else:
                     odd_even = 0
-                pattern = 0
-            if ((round((float(well_no)+1)/4) % 2 == odd_even) |
-                (old_well_no + 1 != well_no) | (well == last_well)):
-                # Remove the last line, should be empty, of a command string.
-                com = com[:com.rfind('\n')]
-                com_list.append(com)
-                end_com_list.append(end_com)
-                com = ''
+            else:
+                pattern =+ 1
+                start_of_part = False
+        for well in v:
+            if stage4:
+                well = v
+            print(well)
+            if well != prev_well:
+                prev_well = well
+                for i in range(2):
+                    for j in range(2):
+                        if stage4:
+                            # Only enable selected wells from file (arg)
+                            fov = well+'--X0'+str(j)+'--Y0'+str(i)
+                            if fov in coords.keys():
+                                enable = 'true'
+                                dx = coords[fov][0]
+                                dy = coords[fov][1]
+                            else:
+                                enable = 'false'
+                        com = (com +
+                                   enable_com(well,
+                                              'X0'+str(j)+'--Y0'+str(i),
+                                              enable
+                                              )+
+                                   '\n'+
+                                   cam_com(pattern_list,
+                                           well,
+                                           'X0'+str(j)+'--Y0'+str(i),
+                                           dx,
+                                           dy
+                                           )+
+                                   '\n')
+                        end_com = []
+                        for end in ['CAM', 
+                                    well,
+                                    'E03',
+                                    'X0'+str(j)+'--Y0'+str(i)
+                                    ]:
+                            end_com.append(end)
 
-    for i,com in enumerate(com_list):
+    # Store the last unstored commands in lists, after one well at least.
+    com_list.append(com)
+    end_com_list.append(end_com)
+
+    for i, com in enumerate(com_list):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         print(com)
