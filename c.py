@@ -379,9 +379,10 @@ def main(argv):
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
     com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
+    end_com = ['/cli:1 /app:matrix /cmd:deletelist'+'\n']
     dx = ''
     dy = ''
-    pattern = 0
+    pattern = -1
     start_of_part = False
     prev_well = ''
 
@@ -419,8 +420,23 @@ def main(argv):
         stage_dict = wells
         old_well_no = wells.items()[0][0]-1
         job_list = job_63x
-        pattern_list = pattern_63x[pattern]
     for k, v in stage_dict.iteritems():
+        if stage3:
+            start_of_part = True
+        if stage4:
+            # Check if well no 1-4 or 5-8 etc and continuous.
+            if ((round((float(k)+1)/4) % 2 == odd_even) |
+                (old_well_no + 1 != k)):
+                pattern = 0
+                start_of_part = True
+                if odd_even == 0:
+                    odd_even = 1
+                else:
+                    odd_even = 0
+            else:
+                pattern =+ 1
+                start_of_part = False
+            pattern_list = pattern_63x[pattern]
         if start_of_part:
             # Store the commands in lists, after one well at least.
             com_list.append(com)
@@ -438,21 +454,6 @@ def main(argv):
                 detector = '2'
                 job = job_list[i-1]
             com = com + gain_com(job, detector, set_gain) + '\n'
-        if stage3:
-            start_of_part = True
-        if stage4:
-            # Check if well no 1-4 or 5-8 etc and continuous.
-            if ((round((float(k)+1)/4) % 2 == odd_even) |
-                (old_well_no + 1 != k)):
-                pattern = 0
-                start_of_part = True
-                if odd_even == 0:
-                    odd_even = 1
-                else:
-                    odd_even = 0
-            else:
-                pattern =+ 1
-                start_of_part = False
         for well in v:
             if stage4:
                 well = v
