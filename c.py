@@ -20,9 +20,9 @@ from socket_client import Client
 
 def usage():
     """Usage function to help user start the script"""
-    
+
     print("""Usage: """+sys.argv[0]+""" -i <dir> [options]
-    
+
     Options and arguments:
     -h, --help                  : show the usage information
     -i <dir>, --input=<dir>     : set imaging directory
@@ -38,14 +38,14 @@ def usage():
 def camstart_com(_afjob, _afr, _afs):
     """Returns a cam command to start the cam scan with selected AF job
     and AF settings."""
-    
+
     _com = ('/cli:1 /app:matrix /cmd:startcamscan /runtime:36000'
             ' /repeattime:36000 /afj:'+_afjob+' /afr:'+_afr+' /afs:'+_afs)
     return _com
 
 def gain_com(_job, _pmt, _gain):
     """Returns a cam command for changing the pmt gain in a job."""
-    
+
     _com = ('/cli:1 /app:matrix /cmd:adjust /tar:pmt /num:'+_pmt+
             ' /exp:'+_job+' /prop:gain /value:'+_gain
             )
@@ -53,17 +53,17 @@ def gain_com(_job, _pmt, _gain):
 
 def get_wfx(_compartment):
     """Returns a string representing the well or field X coordinate."""
-    
+
     return str(int(re.sub(r'\D', '', re.sub('--.\d\d', '', _compartment)))+1)
 
 def get_wfy(_compartment):
     """Returns a string representing the well or field Y coordinate."""
-    
+
     return str(int(re.sub(r'\D', '', re.sub('.\d\d--', '', _compartment)))+1)
 
 def enable_com(_well, _field, enable):
     """Returns a cam command to enable a field in a well."""
-    
+
     wellx = get_wfx(_well)
     welly = get_wfy(_well)
     fieldx = get_wfx(_field)
@@ -75,7 +75,7 @@ def enable_com(_well, _field, enable):
 
 def cam_com(_job, _well, _field, _dx, _dy):
     """Returns a cam command to add a field to the cam list."""
-    
+
     _wellx = get_wfx(_well)
     _welly = get_wfy(_well)
     _fieldx = get_wfx(_field)
@@ -89,7 +89,7 @@ def cam_com(_job, _well, _field, _dx, _dy):
 
 def process_output(_well, output, dl):
     """Function to process output from the R scripts."""
-    
+
     dl.append({'well': _well,
               'green': output.split()[0],
               'blue': output.split()[1],
@@ -100,7 +100,7 @@ def process_output(_well, output, dl):
 
 def write_csv(path, dict_list, keys):
     """Function to write a list of dicts as a csv file."""
-    
+
     with open(path, 'wb') as f:
         w = csv.DictWriter(f, keys)
         w.writeheader()
@@ -108,7 +108,7 @@ def write_csv(path, dict_list, keys):
 
 def main(argv):
     """Main function"""
-    
+
     try:
         opts, args = getopt.getopt(argv, 'hi:', ['help',
                                                  'input=',
@@ -167,7 +167,7 @@ def main(argv):
     # Paths
     first_r_script = os.path.normpath(working_dir+'/gain.r')
     sec_r_script = os.path.normpath(working_dir+'/gain_change_objectives.r')
-    
+
     # Job names
     af_job_10x = 'af10x'
     af_job_40x = 'af40x'
@@ -184,7 +184,7 @@ def main(argv):
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
                'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
-    
+
     # Booleans to control flow.
     stage1 = True
     stage1after = False
@@ -202,7 +202,7 @@ def main(argv):
             for d in reader:
                 for coord in ['dx', 'dy']:
                     coords[d['fov']].append(d[coord])
-        
+
     # 40x gain command in standard well
     stage2_com = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
                   cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
@@ -210,8 +210,8 @@ def main(argv):
                   cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0'))
     start_com = '/cli:1 /app:matrix /cmd:startscan'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan'
-    
-    # Create imaging directory oject
+
+    # Create imaging directory object
     img_dir = Directory(imaging_dir)
 
     # Create socket
@@ -220,7 +220,7 @@ def main(argv):
     port = 8895
     # Connect to server
     sock.connect(host, port)
-    
+
 
     # timeout
     timeout = 300
@@ -315,7 +315,7 @@ def main(argv):
         time.sleep(5)
         if stage1after and stage2after:
             stage1 = False
-    
+
     # Get a unique set of filebases from the csv paths.
     filebases = sorted(set(filebases))
     first_std_fbs = sorted(set(first_std_fbs))
@@ -407,6 +407,7 @@ def main(argv):
     if stage3:
         print('Stage3')
         camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+        # FIX gain VARIABLE!!!
         channels = [gain, medians['blue'], medians['yellow'], medians['red']]
         stage_dict = green_sorted
         job_list = job_40x
@@ -485,7 +486,7 @@ def main(argv):
                                            )+
                                    '\n')
                         end_com = []
-                        for end in ['CAM', 
+                        for end in ['CAM',
                                     well,
                                     'E03',
                                     'X0'+str(j)+'--Y0'+str(i)
