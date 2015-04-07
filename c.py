@@ -241,7 +241,6 @@ def main(argv):
             print('Timeout! No more images to process!')
             break
         print('Searching for images...')
-        fin_well_paths = []
         try:
             img_paths = img_dir.get_all_files('*.tif')
             for img_path in img_paths:
@@ -252,9 +251,10 @@ def main(argv):
                 #testing
                 print(well_path)
                 well = Directory(well_path)
+                well_name = well.get_name('U\d\d--V\d\d')
                 well_img_paths = sorted(well.get_all_files('*.tif'))
                 # Find first_std_path.
-                if (well.get_name('U\d\d--V\d\d') == std_well and
+                if (well_name == std_well and
                       'CAM' not in well_path):
                     first_std_path = well_path
                     if stage2before:
@@ -266,11 +266,17 @@ def main(argv):
                         sock.send(camstart)
                         stage2before = False
                 # Find sec_std_path.
-                if (well.get_name('U\d\d--V\d\d') == std_well and
+                if (well_name == std_well and
                       'CAM' in well_path):
                     sec_std_path = well_path
                 if ((len(well_img_paths) == 66) &
                     (len(well.get_all_files('*.csv')) == 0)):
+                    if 'CAM' in well_path:
+                        stage2after = True
+                    if (well_name == last_well and
+                        field.get_name('X\d\d--Y\d\d') == last_field and
+                        'CAM' not in well_path:
+                        stage1after = True
                     ptime = time.time()
                     print('Making max projections and calculating histograms')
                     channels = []
@@ -296,19 +302,13 @@ def main(argv):
                         filebase = csv_file.cut_path('C\d\d.+$')
                         if well_path != sec_std_path:
                             filebases.append(filebase)
-                            fin_wells.append(well.get_name('U\d\d--V\d\d'))
+                            fin_wells.append(well_name)
                             if well_path == first_std_path:
                                 first_std_fbs.append(filebase)
                         else:
                             sec_std_fbs.append(filebase)
                     print(str(time.time()-ptime)+' secs')
                     begin = time.time()
-                    if (well.get_name('U\d\d--V\d\d') == last_well and
-                        field.get_name('X\d\d--Y\d\d') == last_field):
-                        if 'CAM' not in well_path:
-                            stage1after = True
-                        if 'CAM' in well_path:
-                            stage2after = True
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
         print('Sleeping 5 secs...')
@@ -407,8 +407,6 @@ def main(argv):
     if stage3:
         print('Stage3')
         camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
-        # FIX gain VARIABLE!!!
-        channels = [gain, medians['blue'], medians['yellow'], medians['red']]
         stage_dict = green_sorted
         job_list = job_40x
         pattern_list = pattern_40x
@@ -424,6 +422,11 @@ def main(argv):
     for k, v in stage_dict.iteritems():
         if stage3:
             start_of_part = True
+            channels = [k,
+                        medians['blue'],
+                        medians['yellow'],
+                        medians['red']
+                        ]
         if stage4:
             # Check if well no 1-4 or 5-8 etc and continuous.
             if ((round((float(k)+1)/4) % 2 == odd_even) |
@@ -455,6 +458,7 @@ def main(argv):
                 detector = '2'
                 job = job_list[i-1]
             com = com + gain_com(job, detector, set_gain) + '\n'
+        # FIX index for stage3!!!
         for well in v:
             if stage4:
                 well = v
