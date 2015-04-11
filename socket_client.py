@@ -9,7 +9,7 @@ class Client(object):
     Attributes:
         sock: The socket
     """
-    
+
     def __init__(self, sock=None):
         # Create a TCP/IP socket
         try:
@@ -22,27 +22,21 @@ class Client(object):
             sys.exit()
         print 'Socket Created'
 
-    def compare(self, string, sub):
-        if sub in string:
-            return True
-        else:
-            return False
-
     def recv_timeout(self, timeout, test):
         """Receives reply from server, with a timeout and a list of strings
         to test. When all test strings are received, the listening loop ends."""
-        
+
         # make socket non blocking
         self.sock.setblocking(False)
- 
+
         # total data in an array
         total_data=[]
         data=''
         joined_data = ''
-     
+
         # start time
         begin=time.time()
-        while not ((all(map(self.compare, [data for t in test], test))) or
+        while not (all(t in data for t in test) or
                    ('scanfinished' in data)):
             # if data exist, then break after timeout
             if total_data and time.time()-begin > timeout:
@@ -88,7 +82,7 @@ class Client(object):
         except socket.error:
             print 'Failed to connect to socket.'
             sys.exit()
-        
+
         return
 
     def send(self, message):
@@ -119,7 +113,7 @@ class Client(object):
             sys.exit()
 
         print 'Message sent successfully.'
-        
+
         return
 
     def close(self):

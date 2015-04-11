@@ -7,7 +7,8 @@ import time
 import csv
 from lxml import etree
 import numpy
-from scipy.misc import imread, imsave
+from scipy.misc import imread
+from tifffile import imsave
 from scipy.ndimage.measurements import histogram
 from itertools import  combinations
 from itertools import groupby
@@ -105,6 +106,23 @@ def write_csv(path, dict_list, keys):
         w = csv.DictWriter(f, keys)
         w.writeheader()
         w.writerows(dict_list)
+
+def make_proj(img_list):
+    """Function to make a dict of max projections from a list of paths
+    to images. Each channel will make one max projection"""
+    channels = []
+    for path in img_list:
+        channel = File(path).get_name('C\d\d')
+        channels.append(channel)
+        channels = sorted(set(channels))
+    max_imgs = {}
+    for channel in channels:
+        images = []
+        for path in img_list:
+            if channel == File(path).get_name('C\d\d'):
+                images.append(imread(path))
+        max_imgs[channel] = np.maximum.reduce(images)
+    return max_imgs
 
 def main(argv):
     """Main function"""
@@ -279,19 +297,9 @@ def main(argv):
                         stage1after = True
                     ptime = time.time()
                     print('Making max projections and calculating histograms')
-                    channels = []
-                    for img_path in well_img_paths:
-                        channel = File(img_path).get_name('C\d\d')
-                        channels.append(channel)
-                        channels = sorted(set(channels))
-                    # Do we need to rename finished images?
-                    for channel in channels:
-                        images = []
-                        for img_path in well_img_paths:
-                            if channel == File(img_path).get_name('C\d\d'):
-                                images.append(imread(img_path))
-                        max_img = np.maximum.reduce(images)
-                        histo = histogram(max_img, 0, 65535, 256)
+                    max_projs = make_proj(well_img_paths)
+                    for channel, proj in max_projs.iteritems():
+                        histo = histogram(proj, 0, 65535, 256)
                         rows = []
                         for b, count in enumerate(histo):
                             rows.append({'bin': b, 'count': count})
@@ -458,7 +466,6 @@ def main(argv):
                 detector = '2'
                 job = job_list[i-1]
             com = com + gain_com(job, detector, set_gain) + '\n'
-        # FIX index for stage3!!!
         for well in v:
             if stage4:
                 well = v
@@ -489,19 +496,18 @@ def main(argv):
                                            dy
                                            )+
                                    '\n')
-                        end_com = []
-                        for end in ['CAM',
+                        end_com = ['CAM',
                                     well,
                                     'E03',
                                     'X0'+str(j)+'--Y0'+str(i)
-                                    ]:
-                            end_com.append(end)
+                                    ]
 
     # Store the last unstored commands in lists, after one well at least.
     com_list.append(com)
     end_com_list.append(end_com)
 
     for i, com in enumerate(com_list):
+        stage4 = True
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         print(com)
@@ -513,7 +519,42 @@ def main(argv):
         # Start CAM scan.
         print(camstart)
         sock.send(camstart)
-        sock.recv_timeout(40, end_com_list[i])
+        if stage3:
+            sock.recv_timeout(40, end_com_list[i])
+        while stage4:
+            reply = sock.recv_timeout(40, ['E03'])
+            # parse reply, check well (UV), job-order (E), field (XY),
+            # z slice (Z) and channel (C). Get well path.
+            # Get all image paths in well. Rename images.
+            # Make a max proj per channel. Save meta data and image max proj.
+            img_name = File(reply).get_name('image--.*')
+            img_path = img_dir.get_all_files(img_name)
+            field_path = File(img_path).get_dir()
+            well_path = Directory(field_path).get_dir()
+            img_paths = Directory(field_path).get_all_files('*.tif')
+            for img_path in img_paths:
+                img = File(img_path)
+                well = img.get_name('U\d\d--V\d\d')
+                job_order = img.get_name('E\d\d')
+                field = img.get_name('X\d\d--Y\d\d')
+                z_slice = img.get_name('Z\d\d')
+                channel = img.get_name('C\d\d')
+                if job_order == 'E01':
+                    new_name = img_path[0:-11]+'C00.ome.tif'
+                if job_order == 'E02' and channel == 'C00':
+                    new_name = img_path[0:-11]+'C01.ome.tif'
+                if job_order == 'E02' and channel == 'C01':
+                    new_name = img_path[0:-11]+'C02.ome.tif'
+                if job_order == 'E03':
+                    new_name = img_path[0:-11]+'C03.ome.tif'
+                os.rename(img_path, new_name)
+            metadata = img.meta_data()
+            max_projs = make_proj(img_paths)
+            for channel, proj in max_projs.iteritems():
+                p = field_path+'/maxprojs/'+well+'--'+field+'--'+channel+'.tif'
+                imsave(p, proj, description=metadata)
+            if all(test in reply for test in end_com_list[i]):
+                stage4 = False
         # Stop scan
         print(stop_com)
         sock.send(stop_com)

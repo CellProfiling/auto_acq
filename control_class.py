@@ -1,6 +1,7 @@
 import os
 import fnmatch
 import re
+import tifffile
 from PIL import Image
 from lxml import etree
 from unicodedata import normalize
@@ -23,9 +24,9 @@ class Base(object):
 
     @abc.abstractmethod
     def get_name(self, path, regex):
-        """Return the name of the object, matching regex."""
+        """Return the part of the name of the object, matching regex."""
         match = re.search(regex, os.path.basename(path))
-        if match:                      
+        if match:
             return match.group()
         else:
             print('No match')
@@ -56,7 +57,8 @@ class Directory(Base):
         return dir_list
 
     def get_name(self, regex):
-        """Return the name of the current directory, matching regex."""
+        """Return the part of the name of the current directory,
+        matching regex."""
         path = os.path.normpath(self.path)
         return super(Directory, self).get_name(path, regex)
 
@@ -84,17 +86,32 @@ class File(Base):
 
     namespace = {'ns':'http://www.openmicroscopy.org/Schemas/OME/2008-09'}
 
+    #def meta_data(self):
+    #    """Open an image and find the meta data and return it as ascii."""
+    #    im = Image.open(self.path)
+    #    return normalize('NFKD', im.tag[270]).encode('ascii','ignore')
+
+    def read_image(self):
+        with tifffile.TiffFile(self.path) as tif:
+            return tif.asarray()
+
+    def meta_data(self):
+        with tifffile.TiffFile(self.path) as tif:
+            return tif[0].image_description
+
+    #def save_image(self, path, data, metadata):
+    #    tifffile.imsave(path, data, description=metadata)
+
     def serial_no(self):
         """Open an image and find the serial number of the objective that
-        acquired the image"""
-        im = Image.open(self.path)
-        ascii = normalize('NFKD', im.tag[270]).encode('ascii','ignore')
-        root = etree.fromstring(ascii)
+        acquired the image."""
+        asci = self.meta_data()
+        root = etree.fromstring(asci)
         return root.xpath('//ns:Objective/@SerialNumber',
                                    namespaces=self.namespace)[0]
 
     def get_name(self, regex):
-        """Return the name of the file, matching regex."""
+        """Return the part of the name of the file, matching regex."""
         path = self.path
         return super(File, self).get_name(path, regex)
 
