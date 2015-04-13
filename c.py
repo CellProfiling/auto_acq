@@ -6,7 +6,7 @@ import re
 import time
 import csv
 from lxml import etree
-import numpy
+import numpy as np
 from scipy.misc import imread
 from tifffile import imsave
 from scipy.ndimage.measurements import histogram
@@ -250,6 +250,9 @@ def main(argv):
     first_std_fbs = []
     sec_std_fbs = []
     fin_wells = []
+    
+    first_gain_dicts = []
+    sec_gain_dicts = []
 
     while stage1:
         #testing
@@ -260,115 +263,130 @@ def main(argv):
             break
         print('Searching for images...')
         try:
-            img_paths = img_dir.get_all_files('*.tif')
-            for img_path in img_paths:
-                img = File(img_path)
-                field_path = img.get_dir()
-                field = Directory(field_path)
-                well_path = field.get_dir()
-                #testing
-                print(well_path)
-                well = Directory(well_path)
-                well_name = well.get_name('U\d\d--V\d\d')
-                well_img_paths = sorted(well.get_all_files('*.tif'))
-                # Find first_std_path.
-                if (well_name == std_well and
-                      'CAM' not in well_path):
-                    first_std_path = well_path
-                    if stage2before:
-                        print('Stage2')
-                        # Add 40x gain scan in std well to CAM list.
-                        sock.send(stage2_com)
-                        camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
-                        # Start CAM scan.
-                        sock.send(camstart)
-                        stage2before = False
-                # Find sec_std_path.
-                if (well_name == std_well and
-                      'CAM' in well_path):
-                    sec_std_path = well_path
-                if ((len(well_img_paths) == 66) &
-                    (len(well.get_all_files('*.csv')) == 0)):
-                    if 'CAM' in well_path:
-                        stage2after = True
-                    if (well_name == last_well and
-                        field.get_name('X\d\d--Y\d\d') == last_field and
-                        'CAM' not in well_path:
-                        stage1after = True
-                    ptime = time.time()
-                    print('Making max projections and calculating histograms')
-                    max_projs = make_proj(well_img_paths)
-                    for channel, proj in max_projs.iteritems():
-                        histo = histogram(proj, 0, 65535, 256)
-                        rows = []
-                        for b, count in enumerate(histo):
-                            rows.append({'bin': b, 'count': count})
-                        p = well_path+'/maxprojs/'+well_name+'--'+channel+'.csv'
-                        write_csv(os.path.normpath(p), rows, ['bin', 'count'])
-                        csv_file = File(p)
-                        # Get the filebase from the csv path.
-                        filebase = csv_file.cut_path('C\d\d.+$')
-                        if well_path != sec_std_path:
-                            filebases.append(filebase)
-                            fin_wells.append(well_name)
-                            if well_path == first_std_path:
-                                first_std_fbs.append(filebase)
-                        else:
-                            sec_std_fbs.append(filebase)
-                    print(str(time.time()-ptime)+' secs')
-                    begin = time.time()
+            img_dir_paths = img_dir.get_all_children()
+            for img_dir_path in img_dir_paths:
+                field_img_paths = Directory(img_dir_path).get_files('*.tif')
+                if field_img_paths:
+                    img_path = field_img_paths[0]
+                    img = File(img_path)
+                    field_path = img.get_dir()
+                    field = Directory(field_path)
+                    well_path = field.get_dir()
+                    #testing
+                    #print(img_path)
+                    well = Directory(well_path)
+                    well_name = well.get_name('U\d\d--V\d\d')
+                    # '^((?!E00).)*.tif$'
+                    well_img_paths = sorted(well.get_all_files('*.tif'))
+                    # Find first_std_path.
+                    if (well_name == std_well and
+                          'CAM' not in well_path):
+                        first_std_path = well_path
+                        if stage2before:
+                            print('Stage2')
+                            # Add 40x gain scan in std well to CAM list.
+                            sock.send(stage2_com)
+                            camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+                            # Start CAM scan.
+                            sock.send(camstart)
+                            stage2before = False
+                    # Find sec_std_path.
+                    if (well_name == std_well and
+                          'CAM' in well_path):
+                        sec_std_path = well_path
+                    #testing
+                    print('Number of images per well: '+str(len(well_img_paths)))
+                    if ((len(well_img_paths) == 66) &
+                        (len(well.get_all_files('*.csv')) == 0)):
+                        if 'CAM' in well_path:
+                            stage2after = True
+                        if ((well_name == last_well) and
+                            ('CAM' not in well_path)):
+                            stage1after = True
+                        ptime = time.time()
+                        print('Making max projections and calculating histograms')
+                        checked_img_paths = []
+                        for img_path in well_img_paths:
+                            img = imread(img_path)
+                            if len(img) == 512:
+                                checked_img_paths.append(img_path)
+                        max_projs = make_proj(checked_img_paths)
+                        for channel, proj in max_projs.iteritems():
+                            histo = histogram(proj, 0, 255, 256)
+                            rows = []
+                            for b, count in enumerate(histo):
+                                rows.append({'bin': b, 'count': count})
+                            new_dir = well_path+'/maxprojs/'
+                            if not os.path.exists(new_dir):
+                                os.makedirs(new_dir)
+                            p = new_dir+well_name+'--'+channel+'.ome.csv'
+                            write_csv(os.path.normpath(p), rows, ['bin', 'count'])
+                            csv_file = File(p)
+                            # Get the filebase from the csv path.
+                            filebase = csv_file.cut_path('C\d\d.+$')
+                            if well_path != sec_std_path:
+                                filebases.append(filebase)
+                                fin_wells.append(well_name)
+                                if well_path == first_std_path:
+                                    first_std_fbs.append(filebase)
+                            else:
+                                sec_std_fbs.append(filebase)
+                        print(str(time.time()-ptime)+' secs')
+                        begin = time.time()
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
+        
+        # For all experiment wells imaged so far, run R script
+        if filebases and first_std_fbs and sec_std_fbs:
+            # Get a unique set of filebases from the csv paths.
+            filebases = sorted(set(filebases))
+            first_std_fbs = sorted(set(first_std_fbs))
+            sec_std_fbs = sorted(set(sec_std_fbs))
+            # Get a unique set of names of the experiment wells.
+            fin_wells = sorted(set(fin_wells))
+            for i in range(len(filebases)):
+                well = fin_wells[i]
+                #print(filebases[i])
+                print(well)
+                try:
+                    print('Starting R...')
+                    r_output = subprocess.check_output(['Rscript',
+                                                        first_r_script,
+                                                        imaging_dir,
+                                                        filebases[i],
+                                                        first_initialgains_file
+                                                        ])
+                    first_gain_dicts = process_output(well, r_output, first_gain_dicts)
+                    input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
+                                    r_output.split()[2]+' '+r_output.split()[3]+'')
+                    r_output = subprocess.check_output(['Rscript',
+                                                        sec_r_script,
+                                                        first_std_path,
+                                                        first_std_fbs[0],
+                                                        first_initialgains_file,
+                                                        input_gains,
+                                                        sec_std_path,
+                                                        sec_std_fbs[0],
+                                                        sec_initialgains_file
+                                                        ])
+                except OSError as e:
+                    print('Execution failed:', e)
+                    sys.exit()
+                except subprocess.CalledProcessError as e:
+                    print('Subprocess returned a non-zero exit status:', e)
+                    sys.exit()
+                # testing
+                print(r_output)
+                sec_gain_dicts = process_output(well, r_output, sec_gain_dicts)
+            # empty lists for keeping csv file base path names
+            # and corresponding well names
+            filebases = []
+            fin_wells = []
+        
         print('Sleeping 5 secs...')
         time.sleep(5)
         if stage1after and stage2after:
             stage1 = False
-
-    # Get a unique set of filebases from the csv paths.
-    filebases = sorted(set(filebases))
-    first_std_fbs = sorted(set(first_std_fbs))
-    sec_std_fbs = sorted(set(sec_std_fbs))
-    # Get a unique set of names of the experiment wells.
-    fin_wells = sorted(set(fin_wells))
-
-    first_gain_dicts = []
-    sec_gain_dicts = []
-
-    # For all experiment wells run R script
-    for i in range(len(filebases)):
-        well = fin_wells[i]
-        #print(filebases[i])
-        print(well)
-        try:
-            print('Starting R...')
-            r_output = subprocess.check_output(['Rscript',
-                                                first_r_script,
-                                                imaging_dir,
-                                                filebases[i],
-                                                first_initialgains_file
-                                                ])
-            first_gain_dicts = process_output(well, r_output, first_gain_dicts)
-            input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
-                            r_output.split()[2]+' '+r_output.split()[3]+'')
-            r_output = subprocess.check_output(['Rscript',
-                                                sec_r_script,
-                                                first_std_path,
-                                                first_std_fbs[0],
-                                                first_initialgains_file,
-                                                input_gains,
-                                                sec_std_path,
-                                                sec_std_fbs[0],
-                                                sec_initialgains_file
-                                                ])
-        except OSError as e:
-            print('Execution failed:', e)
-            sys.exit()
-        except subprocess.CalledProcessError as e:
-            print('Subprocess returned a non-zero exit status:', e)
-            sys.exit()
-        # testing
-        print(r_output)
-        sec_gain_dicts = process_output(well, r_output, sec_gain_dicts)
 
     write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'),
               first_gain_dicts,
@@ -410,7 +428,7 @@ def main(argv):
                 # Find the median value of all gains in
                 # blue, yellow and red channels.
                 mlist.append(int(d[c]))
-                medians[c] = int(numpy.median(mlist))
+                medians[c] = int(np.median(mlist))
 
     if stage3:
         print('Stage3')
@@ -532,6 +550,7 @@ def main(argv):
             field_path = File(img_path).get_dir()
             well_path = Directory(field_path).get_dir()
             img_paths = Directory(field_path).get_all_files('*.tif')
+            new_paths = []
             for img_path in img_paths:
                 img = File(img_path)
                 well = img.get_name('U\d\d--V\d\d')
@@ -548,10 +567,15 @@ def main(argv):
                 if job_order == 'E03':
                     new_name = img_path[0:-11]+'C03.ome.tif'
                 os.rename(img_path, new_name)
+                if (job_order == 'E01' or job_order == 'E02' or
+                    job_order == 'E03'):
+                    new_paths.append(new_name)
             metadata = img.meta_data()
-            max_projs = make_proj(img_paths)
+            max_projs = make_proj(new_paths)
+            new_dir = field_path+'/maxprojs/'
+            if not os.path.exists(new_dir): os.makedirs(new_dir)
             for channel, proj in max_projs.iteritems():
-                p = field_path+'/maxprojs/'+well+'--'+field+'--'+channel+'.tif'
+                p = new_dir+well+'--'+field+'--'+channel+'.tif'
                 imsave(p, proj, description=metadata)
             if all(test in reply for test in end_com_list[i]):
                 stage4 = False
