@@ -105,6 +105,7 @@ class Client(object):
                 self.recv_timeout(20, line[:-2])
                 time.sleep(0.3)
                 if 'pmt' in line:
+                    print('Waiting for objective')
                     time.sleep(5)
 
         except socket.error:

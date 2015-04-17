@@ -210,6 +210,7 @@ def main(argv):
     stage2after = False
     stage3 = True
     stage4 = False
+    stage5 = False
     if coord_file:
         stage2before = False
         stage3 = False
@@ -312,7 +313,11 @@ def main(argv):
                                 checked_img_paths.append(img_path)
                         max_projs = make_proj(checked_img_paths)
                         for channel, proj in max_projs.iteritems():
-                            histo = histogram(proj, 0, 255, 256)
+                            if proj.dtype.name == 'uint8':
+                                max_int = 255
+                            if proj.dtype.name == 'uint16':
+                                max_int = 65535
+                            histo = histogram(proj, 0, max_int, 256)
                             rows = []
                             for b, count in enumerate(histo):
                                 rows.append({'bin': b, 'count': count})
@@ -406,8 +411,8 @@ def main(argv):
     medians = defaultdict(int)
     com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
     end_com = ['/cli:1 /app:matrix /cmd:deletelist'+'\n']
-    dx = ''
-    dy = ''
+    dx = 0
+    dy = 0
     pattern = -1
     start_of_part = False
     prev_well = ''
@@ -447,7 +452,6 @@ def main(argv):
         job_list = job_63x
     for k, v in stage_dict.iteritems():
         if stage3:
-            start_of_part = True
             channels = [k,
                         medians['blue'],
                         medians['yellow'],
@@ -475,6 +479,7 @@ def main(argv):
         for i, c in enumerate(channels):
             if stage3:
                 set_gain = str(c)
+                start_of_part = True
             if stage4:
                 set_gain = str(gains[v][i])
             if i < 2:
@@ -510,8 +515,8 @@ def main(argv):
                                    cam_com(pattern_list,
                                            well,
                                            'X0'+str(j)+'--Y0'+str(i),
-                                           dx,
-                                           dy
+                                           str(dx),
+                                           str(dy)
                                            )+
                                    '\n')
                         end_com = ['CAM',
@@ -525,11 +530,11 @@ def main(argv):
     end_com_list.append(end_com)
 
     for i, com in enumerate(com_list):
-        stage4 = True
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         print(com)
         sock.send(com)
+        time.sleep(3)
         # Start scan.
         print(start_com)
         sock.send(start_com)
@@ -537,17 +542,21 @@ def main(argv):
         # Start CAM scan.
         print(camstart)
         sock.send(camstart)
+        time.sleep(3)
         if stage3:
             sock.recv_timeout(40, end_com_list[i])
-        while stage4:
+        if stage4:
+            stage5 = True
+        while stage5:
+            metadata_d = {}
             reply = sock.recv_timeout(40, ['E03'])
             # parse reply, check well (UV), job-order (E), field (XY),
             # z slice (Z) and channel (C). Get well path.
             # Get all image paths in well. Rename images.
             # Make a max proj per channel. Save meta data and image max proj.
             img_name = File(reply).get_name('image--.*')
-            img_path = img_dir.get_all_files(img_name)
-            field_path = File(img_path).get_dir()
+            img_paths = img_dir.get_all_files(img_name)
+            field_path = File(img_paths[0]).get_dir()
             well_path = Directory(field_path).get_dir()
             img_paths = Directory(field_path).get_all_files('*.tif')
             new_paths = []
@@ -570,15 +579,18 @@ def main(argv):
                 if (job_order == 'E01' or job_order == 'E02' or
                     job_order == 'E03'):
                     new_paths.append(new_name)
-            metadata = img.meta_data()
+                    metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
+            
             max_projs = make_proj(new_paths)
             new_dir = field_path+'/maxprojs/'
             if not os.path.exists(new_dir): os.makedirs(new_dir)
             for channel, proj in max_projs.iteritems():
                 p = new_dir+well+'--'+field+'--'+channel+'.tif'
+                metadata = metadata_d[well+'--'+field+'--'+channel]
                 imsave(p, proj, description=metadata)
             if all(test in reply for test in end_com_list[i]):
-                stage4 = False
+                stage5 = False
+        time.sleep(5)
         # Stop scan
         print(stop_com)
         sock.send(stop_com)
