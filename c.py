@@ -188,6 +188,8 @@ def main(argv):
 
     # Job names
     af_job_10x = 'af10x'
+    afr_10x = '200'
+    afs_10x = '21'
     af_job_40x = 'af40x'
     afr_40x = '105'
     afs_40x = '106'
@@ -202,8 +204,10 @@ def main(argv):
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
                'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
+    job_dummy = 'job22'
 
     # Booleans to control flow.
+    stage0 = True
     stage1 = True
     stage1after = False
     stage2before = True
@@ -221,6 +225,21 @@ def main(argv):
             for d in reader:
                 for coord in ['dx', 'dy']:
                     coords[d['fov']].append(d[coord])
+
+    # 10x gain command in all selected wells
+    stage1_com = '/cli:1 /app:matrix /cmd:deletelist'
+    for u in range(12):
+        for v in range(8):
+            for i in range(2):
+                stage1_com = (stage1_com +
+                              '\n'+
+                              cam_com(g_job_10x,
+                                      'U0'+str(u)+'--V0'+str(v),
+                                      'X0'+str(i)+'--Y0'+str(i),
+                                      '0',
+                                      '0'
+                                      )+
+                              '\n')
 
     # 40x gain command in standard well
     stage2_com = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
@@ -240,7 +259,6 @@ def main(argv):
     # Connect to server
     sock.connect(host, port)
 
-
     # timeout
     timeout = 300
     # start time
@@ -251,13 +269,13 @@ def main(argv):
     first_std_fbs = []
     sec_std_fbs = []
     fin_wells = []
-    
+
     first_gain_dicts = []
     sec_gain_dicts = []
 
-    while stage1:
+    while stage0:
         #testing
-        print('stage1')
+        print('stage0')
         print('Time: '+str(time.time()))
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
@@ -268,6 +286,14 @@ def main(argv):
             for img_dir_path in img_dir_paths:
                 field_img_paths = Directory(img_dir_path).get_files('*.tif')
                 if field_img_paths:
+                    if stage1:
+                        print('Stage1')
+                        # Add 10x gain scan for wells to CAM list.
+                        sock.send(stage1_com)
+                        camstart = camstart_com(af_job_10x, afr_10x, afs_10x)
+                        # Start CAM scan.
+                        sock.send(camstart)
+                        stage1 = False
                     img_path = field_img_paths[0]
                     img = File(img_path)
                     field_path = img.get_dir()
@@ -340,7 +366,7 @@ def main(argv):
                         begin = time.time()
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
-        
+
         # For all experiment wells imaged so far, run R script
         if filebases and first_std_fbs and sec_std_fbs:
             # Get a unique set of filebases from the csv paths.
@@ -387,11 +413,11 @@ def main(argv):
             # and corresponding well names
             filebases = []
             fin_wells = []
-        
+
         print('Sleeping 5 secs...')
         time.sleep(5)
         if stage1after and stage2after:
-            stage1 = False
+            stage0 = False
 
     write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'),
               first_gain_dicts,
@@ -580,7 +606,7 @@ def main(argv):
                     job_order == 'E03'):
                     new_paths.append(new_name)
                     metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
-            
+
             max_projs = make_proj(new_paths)
             new_dir = field_path+'/maxprojs/'
             if not os.path.exists(new_dir): os.makedirs(new_dir)
