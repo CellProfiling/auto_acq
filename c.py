@@ -226,13 +226,12 @@ def main(argv):
                 for coord in ['dx', 'dy']:
                     coords[d['fov']].append(d[coord])
 
-    # 10x gain command in all selected wells
-    stage1_com = '/cli:1 /app:matrix /cmd:deletelist'
+    # 10x gain job cam command in all selected wells
+    stage1_com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
     for u in range(12):
         for v in range(8):
             for i in range(2):
                 stage1_com = (stage1_com +
-                              '\n'+
                               cam_com(g_job_10x,
                                       'U0'+str(u)+'--V0'+str(v),
                                       'X0'+str(i)+'--Y0'+str(i),
@@ -241,7 +240,7 @@ def main(argv):
                                       )+
                               '\n')
 
-    # 40x gain command in standard well
+    # 40x gain job cam command in standard well
     stage2_com = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
                   cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
@@ -608,7 +607,7 @@ def main(argv):
                     metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
 
             max_projs = make_proj(new_paths)
-            new_dir = field_path+'/maxprojs/'
+            new_dir = imaging_dir+'/maxprojs/'
             if not os.path.exists(new_dir): os.makedirs(new_dir)
             for channel, proj in max_projs.iteritems():
                 p = new_dir+well+'--'+field+'--'+channel+'.tif'
