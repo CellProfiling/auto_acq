@@ -189,7 +189,7 @@ def main(argv):
     # Job names
     af_job_10x = 'af10x'
     afr_10x = '200'
-    afs_10x = '21'
+    afs_10x = '41'
     af_job_40x = 'af40x'
     afr_40x = '105'
     afs_40x = '106'
@@ -228,8 +228,8 @@ def main(argv):
 
     # 10x gain job cam command in all selected wells
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
-    for u in range(12):
-        for v in range(8):
+    for u in range(int(get_wfx(last_well))):
+        for v in range(int(get_wfy(last_well))):
             for i in range(2):
                 stage1_com = (stage1_com +
                               cam_com(g_job_10x,
@@ -262,6 +262,9 @@ def main(argv):
     timeout = 300
     # start time
     begin = time.time()
+    
+    sec_std_path = ''
+    first_std_path = ''
 
     # lists for keeping csv file base path names and corresponding well names
     filebases = []
@@ -281,18 +284,24 @@ def main(argv):
             break
         print('Searching for images...')
         try:
+            if stage1:
+                print('Stage1')
+                # Add 10x gain scan for wells to CAM list.
+                sock.send(stage1_com)
+                # Start scan.
+                print(start_com)
+                sock.send(start_com)
+                time.sleep(3)
+                camstart = camstart_com(af_job_10x, afr_10x, afs_10x)
+                # Start CAM scan.
+                print(camstart)
+                # Start CAM scan.
+                sock.send(camstart)
+                stage1 = False
             img_dir_paths = img_dir.get_all_children()
             for img_dir_path in img_dir_paths:
                 field_img_paths = Directory(img_dir_path).get_files('*.tif')
                 if field_img_paths:
-                    if stage1:
-                        print('Stage1')
-                        # Add 10x gain scan for wells to CAM list.
-                        sock.send(stage1_com)
-                        camstart = camstart_com(af_job_10x, afr_10x, afs_10x)
-                        # Start CAM scan.
-                        sock.send(camstart)
-                        stage1 = False
                     img_path = field_img_paths[0]
                     img = File(img_path)
                     field_path = img.get_dir()
@@ -306,7 +315,7 @@ def main(argv):
                     well_img_paths = sorted(well.get_all_files('*.tif'))
                     # Find first_std_path.
                     if (well_name == std_well and
-                          'CAM' not in well_path):
+                          'CAM1' in well_path):
                         first_std_path = well_path
                         if stage2before:
                             print('Stage2')
@@ -318,16 +327,16 @@ def main(argv):
                             stage2before = False
                     # Find sec_std_path.
                     if (well_name == std_well and
-                          'CAM' in well_path):
+                          'CAM2' in well_path):
                         sec_std_path = well_path
                     #testing
                     print('Number of images per well: '+str(len(well_img_paths)))
                     if ((len(well_img_paths) == 66) &
                         (len(well.get_all_files('*.csv')) == 0)):
-                        if 'CAM' in well_path:
+                        if 'CAM2' in well_path:
                             stage2after = True
                         if ((well_name == last_well) and
-                            ('CAM' not in well_path)):
+                            ('CAM2' not in well_path)):
                             stage1after = True
                         ptime = time.time()
                         print('Making max projections and calculating histograms')
@@ -555,6 +564,10 @@ def main(argv):
     end_com_list.append(end_com)
 
     for i, com in enumerate(com_list):
+        # Stop scan
+        print(stop_com)
+        sock.send(stop_com)
+        time.sleep(3)
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         print(com)
