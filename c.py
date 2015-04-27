@@ -187,7 +187,7 @@ def main(argv):
     sec_r_script = os.path.normpath(working_dir+'/gain_change_objectives.r')
 
     # Job names
-    af_job_10x = 'af10x'
+    af_job_10x = 'af10xcam'
     afr_10x = '200'
     afs_10x = '41'
     af_job_40x = 'af40x'
@@ -284,20 +284,20 @@ def main(argv):
             break
         print('Searching for images...')
         try:
-            if stage1:
-                print('Stage1')
-                # Add 10x gain scan for wells to CAM list.
-                sock.send(stage1_com)
-                # Start scan.
-                print(start_com)
-                sock.send(start_com)
-                time.sleep(3)
-                camstart = camstart_com(af_job_10x, afr_10x, afs_10x)
-                # Start CAM scan.
-                print(camstart)
-                # Start CAM scan.
-                sock.send(camstart)
-                stage1 = False
+            #if stage1:
+            #    print('Stage1')
+            #    # Add 10x gain scan for wells to CAM list.
+            #    sock.send(stage1_com)
+            #    # Start scan.
+            #    print(start_com)
+            #    sock.send(start_com)
+            #    time.sleep(3)
+            #    camstart = camstart_com(af_job_10x, afr_10x, afs_10x)
+            #    # Start CAM scan.
+            #    print(camstart)
+            #    # Start CAM scan.
+            #    sock.send(camstart)
+            #    stage1 = False
             img_dir_paths = img_dir.get_all_children()
             for img_dir_path in img_dir_paths:
                 field_img_paths = Directory(img_dir_path).get_files('*.tif')
@@ -311,32 +311,32 @@ def main(argv):
                     #print(img_path)
                     well = Directory(well_path)
                     well_name = well.get_name('U\d\d--V\d\d')
-                    # '^((?!E00).)*.tif$'
                     well_img_paths = sorted(well.get_all_files('*.tif'))
-                    # Find first_std_path.
-                    if (well_name == std_well and
-                          'CAM1' in well_path):
-                        first_std_path = well_path
+                    #testing
+                    print('Number of images per well: '+str(len(well_img_paths)))
+                    if ((len(well_img_paths) == 33) &
+                        (len(well.get_all_files('*.csv')) == 0)):
+                        # Find first_std_path.
+                        if (well_name == std_well and
+                              'CAM' not in well_path):
+                            first_std_path = well_path
+                        # Find sec_std_path.
+                        if (well_name == std_well and
+                              'CAM' in well_path):
+                            sec_std_path = well_path
                         if stage2before:
                             print('Stage2')
+                            time.sleep(3)
                             # Add 40x gain scan in std well to CAM list.
                             sock.send(stage2_com)
                             camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
                             # Start CAM scan.
                             sock.send(camstart)
                             stage2before = False
-                    # Find sec_std_path.
-                    if (well_name == std_well and
-                          'CAM2' in well_path):
-                        sec_std_path = well_path
-                    #testing
-                    print('Number of images per well: '+str(len(well_img_paths)))
-                    if ((len(well_img_paths) == 66) &
-                        (len(well.get_all_files('*.csv')) == 0)):
-                        if 'CAM2' in well_path:
+                        if 'CAM' in well_path:
                             stage2after = True
                         if ((well_name == last_well) and
-                            ('CAM2' not in well_path)):
+                            ('CAM' not in well_path)):
                             stage1after = True
                         ptime = time.time()
                         print('Making max projections and calculating histograms')
@@ -628,11 +628,11 @@ def main(argv):
                 imsave(p, proj, description=metadata)
             if all(test in reply for test in end_com_list[i]):
                 stage5 = False
-        time.sleep(5)
+        time.sleep(3)
         # Stop scan
         print(stop_com)
         sock.send(stop_com)
-        time.sleep(3)
+        time.sleep(5)
 
 if __name__ =='__main__':
     main(sys.argv[1:])
