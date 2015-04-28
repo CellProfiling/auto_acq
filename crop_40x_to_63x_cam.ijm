@@ -103,8 +103,13 @@ for (j = 0; j < fileArray.length; j++) {
 		channel = substring(name, cIndex+3, cIndex+5);
 		jobOrderIndex = indexOf(name, "--E");
 		jobOrder = substring(name, jobOrderIndex+3, jobOrderIndex+5);
+		jobNumberIndex = indexOf(name, "--J");
+		jobNumber = substring(name, jobNumberIndex+3, jobNumberIndex+5);
 
-		open(replace(fileArray[j], "--C"+channel, "--C0"+3+""));
+		redPath = replace(replace(fileArray[j], "--E"+jobOrder, "--E03"), "--J"+jobNumber, "--J"+toString(parseInt(jobNumber)+2)+"");
+		open(redPath);
+		redName = getTitle();
+		
 		if (xWell == "00" && yWell == "00" && xField == "00" && yField == "00") {
 			makeRectangle(0, 0, width/2, width/2);
 			run("Draw");
@@ -112,9 +117,9 @@ for (j = 0; j < fileArray.length; j++) {
 			run("Draw");
 			saveAs("PNG", topDir+"start_position.png");
 			close;
-			open(replace(fileArray[j], "--C"+channel, "--C0"+3+""));
+			open(redPath);
 		}
-		run("Merge Channels...", "c1="+replace(name, "--C"+channel, "--C0"+3+"")+" c2="+name+"");
+		run("Merge Channels...", "c1="+redName+" c2="+name+"");
 
 		// Make selection rectangle
 		makeRectangle(width/2, width/2, round(width*164/387.5), round(width*164/387.5));
@@ -138,14 +143,24 @@ for (j = 0; j < fileArray.length; j++) {
 			    print(k+" "+roiX[k]+" "+roiY[k]);
 		    }	
 
-		    for (k = 0; k < 4; k++) {
-			    imageChannel = replace(fileArray[j], "--C"+channel, "--C0"+k+"");
+		    for (k = 1; k < 4; k++) {
+			    //imageChannel = replace(fileArray[j], "--C"+channel, "--C0"+k+"");
+			   	imageChannel = replace(replace(fileArray[j], "--E"+jobOrder, "--E0"+k+""), "--J"+jobNumber, "--J"+toString(parseInt(jobNumber)+k-1)+"");
 			    open(imageChannel);
 			    makeRectangle(roiX[0], roiY[0], round(width*164/387.5), round(width*164/387.5));
 			    run("Crop");
-			    saveAs("Tiff", ""+replace(imageChannel, ".png", "_cropped.tif"));
+			    saveAs("Tiff", ""+replace(imageChannel, ".tif", "_cropped.tif"));
 			    close();
-			    err=File.rename(replace(imageChannel, ".png", "_cropped.tif"), replace(imageChannel, ".png", "_cropped.tif")+".bak");
+			    err=File.rename(replace(imageChannel, ".tif", "_cropped.tif"), replace(imageChannel, ".tif", "_cropped.tif")+".bak");
+			    if (k == 2) {
+			    	imageChannel = replace(imageChannel, "--C"+channel, "--C01");
+			   		open(imageChannel);
+			    	makeRectangle(roiX[0], roiY[0], round(width*164/387.5), round(width*164/387.5));
+			    	run("Crop");
+			    	saveAs("Tiff", ""+replace(imageChannel, ".tif", "_cropped.tif"));
+			    	close();
+			    	err=File.rename(replace(imageChannel, ".tif", "_cropped.tif"), replace(imageChannel, ".tif", "_cropped.tif")+".bak");
+			   	}
 			    //err=File.rename(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), "image--.+", "/cropped/"+replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), ".+image--", "image--")));
 		    }
 
