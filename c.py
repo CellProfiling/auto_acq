@@ -211,12 +211,16 @@ def main(argv):
     stage1 = True
     stage1after = False
     stage2before = True
+    stage2_40x_before = True
+    stage2_63x_before = False
     stage2after = False
     stage3 = True
     stage4 = False
     stage5 = False
     if coord_file:
-        stage2before = False
+        stage1after = True
+        stage2_40x_before = False
+        stage2_63x_before = True
         stage3 = False
         stage4 = True
         coords = defaultdict(list)
@@ -241,10 +245,17 @@ def main(argv):
                               '\n')
 
     # 40x gain job cam command in standard well
-    stage2_com = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
+    stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
                   cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
                   cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0'))
+
+    # 63x gain job cam command in standard well
+    stage2_63x = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
+                  cam_com(g_job_63x, std_well, 'X00--Y00', '0', '0')+
+                  '\n'+
+                  cam_com(g_job_63x, std_well, 'X01--Y01', '0', '0'))
+
     start_com = '/cli:1 /app:matrix /cmd:startscan'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan'
 
@@ -263,6 +274,7 @@ def main(argv):
     # start time
     begin = time.time()
     
+    # Not needed anymore?
     sec_std_path = ''
     first_std_path = ''
 
@@ -311,28 +323,33 @@ def main(argv):
                     #print(img_path)
                     well = Directory(well_path)
                     well_name = well.get_name('U\d\d--V\d\d')
+                    if (well_name == std_well and stage2before):
+                        print('Stage2')
+                        time.sleep(3)
+                        if stage2_40x_before:
+                            # Add 40x gain scan in std well to CAM list.
+                            sock.send(stage2_40x)
+                            camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+                        if stage2_63x_before:
+                            # Add 63x gain scan in std well to CAM list.
+                            sock.send(stage2_63x)
+                            camstart = camstart_com(af_job_63x, afr_63x, afs_63x)
+                        # Start CAM scan.
+                        sock.send(camstart)
+                        stage2before = False
                     well_img_paths = sorted(well.get_all_files('*.tif'))
                     #testing
                     print('Number of images per well: '+str(len(well_img_paths)))
                     if ((len(well_img_paths) == 33) &
                         (len(well.get_all_files('*.csv')) == 0)):
-                        # Find first_std_path.
+                        # Find first_std_path. Remove?
                         if (well_name == std_well and
                               'CAM' not in well_path):
                             first_std_path = well_path
-                        # Find sec_std_path.
+                        # Find sec_std_path. Remove?
                         if (well_name == std_well and
                               'CAM' in well_path):
                             sec_std_path = well_path
-                        if stage2before:
-                            print('Stage2')
-                            time.sleep(3)
-                            # Add 40x gain scan in std well to CAM list.
-                            sock.send(stage2_com)
-                            camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
-                            # Start CAM scan.
-                            sock.send(camstart)
-                            stage2before = False
                         if 'CAM' in well_path:
                             stage2after = True
                         if ((well_name == last_well) and
@@ -363,10 +380,10 @@ def main(argv):
                             csv_file = File(p)
                             # Get the filebase from the csv path.
                             filebase = csv_file.cut_path('C\d\d.+$')
-                            if well_path != sec_std_path:
+                            if 'CAM' not in well_path:
                                 filebases.append(filebase)
                                 fin_wells.append(well_name)
-                                if well_path == first_std_path:
+                                if well_name == std_well:
                                     first_std_fbs.append(filebase)
                             else:
                                 sec_std_fbs.append(filebase)
@@ -374,6 +391,20 @@ def main(argv):
                         begin = time.time()
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
+
+        if coord_file:
+            # get all csv and wells
+            filebases = []
+            first_std_fbs = []
+            fin_wells = []
+            csvs = sorted(img_dir.get_all_files('*.ome.csv'))
+            for csv_path in csvs:
+                csv_file = File(csv_path)
+                if 'CAM' not in csv_path:
+                    filebases.append(csv_file.cut_path('C\d\d.+$'))
+                    fin_wells.append(csv_file.get_name('U\d\d--V\d\d'))
+                    if std_well == csv_file.get_name('U\d\d--V\d\d'):
+                        first_std_fbs.append(csv_file.cut_path('C\d\d.+$'))
 
         # For all experiment wells imaged so far, run R script
         if filebases and first_std_fbs and sec_std_fbs:
@@ -400,11 +431,11 @@ def main(argv):
                                     r_output.split()[2]+' '+r_output.split()[3]+'')
                     r_output = subprocess.check_output(['Rscript',
                                                         sec_r_script,
-                                                        first_std_path,
+                                                        imaging_dir,
                                                         first_std_fbs[0],
                                                         first_initialgains_file,
                                                         input_gains,
-                                                        sec_std_path,
+                                                        imaging_dir,
                                                         sec_std_fbs[0],
                                                         sec_initialgains_file
                                                         ])
@@ -605,27 +636,35 @@ def main(argv):
                 field = img.get_name('X\d\d--Y\d\d')
                 z_slice = img.get_name('Z\d\d')
                 channel = img.get_name('C\d\d')
+                if job_order == 'E00':
+                    make_projs = False
+                else
+                    make_projs = True
                 if job_order == 'E01':
                     new_name = img_path[0:-11]+'C00.ome.tif'
+                    channel = 'C00'
                 if job_order == 'E02' and channel == 'C00':
                     new_name = img_path[0:-11]+'C01.ome.tif'
+                    channel = 'C01'
                 if job_order == 'E02' and channel == 'C01':
                     new_name = img_path[0:-11]+'C02.ome.tif'
+                    channel = 'C02'
                 if job_order == 'E03':
                     new_name = img_path[0:-11]+'C03.ome.tif'
+                    channel = 'C03'
                 os.rename(img_path, new_name)
                 if (job_order == 'E01' or job_order == 'E02' or
                     job_order == 'E03'):
                     new_paths.append(new_name)
                     metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
-
-            max_projs = make_proj(new_paths)
-            new_dir = imaging_dir+'/maxprojs/'
-            if not os.path.exists(new_dir): os.makedirs(new_dir)
-            for channel, proj in max_projs.iteritems():
-                p = new_dir+well+'--'+field+'--'+channel+'.tif'
-                metadata = metadata_d[well+'--'+field+'--'+channel]
-                imsave(p, proj, description=metadata)
+            if make_projs:
+                max_projs = make_proj(new_paths)
+                new_dir = imaging_dir+'/maxprojs/'
+                if not os.path.exists(new_dir): os.makedirs(new_dir)
+                for channel, proj in max_projs.iteritems():
+                    p = new_dir+well+'--'+field+'--'+channel+'.tif'
+                    metadata = metadata_d[well+'--'+field+'--'+channel]
+                    imsave(p, proj, description=metadata)
             if all(test in reply for test in end_com_list[i]):
                 stage5 = False
         time.sleep(3)
