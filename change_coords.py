@@ -19,8 +19,8 @@ def create_dict(input_list, key, value):
     return output_dict
 
 # Sort coord data into dicts
-dxs = create_dict(coords, "fov", "dx")
-dys = create_dict(coords, "fov", "dy")
+dxs = create_dict(coords, "fov", "dxM")
+dys = create_dict(coords, "fov", "dyM")
 
 xml_doc = etree.parse(xml_input)
 

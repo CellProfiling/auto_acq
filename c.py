@@ -227,7 +227,7 @@ def main(argv):
         with open(coord_file) as _file:
             reader = csv.DictReader(_file)
             for d in reader:
-                for coord in ['dx', 'dy']:
+                for coord in ['dxPx', 'dyPx']:
                     coords[d['fov']].append(d[coord])
 
     # 10x gain job cam command in all selected wells

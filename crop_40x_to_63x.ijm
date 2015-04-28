@@ -64,7 +64,7 @@ fileArray = listFiles(dirChosen, topDir, ".+C00\\.png$", fileArray);
 if (File.exists(topDir+"63x_coords.csv") == true) {
 	fileString = File.openAsString(topDir+"63x_coords.csv");
 } else {
-	fileString = "fov,dx,dy";
+	fileString = "fov,dxM,dyM,dxPx,dyPx";
 }
 success = File.delete(topDir+"63x_coords.csv");
 // Open file to write output to.
@@ -166,7 +166,7 @@ for (j = 0; j < fileArray.length; j++) {
 	    	print("xWell: "+xWell);
 	    	print("yWell: "+yWell);
 		
-	    	print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxM+","+dyM);
+	    	print(output, "U"+xWell+"--V"+yWell+"--X"+xField+"--Y"+yField+","+dxM+","+dyM+","+dxPx+","+dyPx);
 	    	//Close the image.
         	close();
         	err=File.rename(fileArray[j], fileArray[j]+".bak");
