@@ -77,7 +77,12 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
     count2 <- csv2$count
     # Plot values
     test <- 0
-    png(filename=paste(filebase, "C", sprintf("%02d", i-1), ".ome.png", sep = ""))
+    if (on_off == "gain_bin") {
+      png(filename=paste(filebase, "C", sprintf("%02d", i-1), ".gain-bin.ome.png", sep = ""))
+    }
+    if (on_off == "bin_gain") {
+      png(filename=paste(filebase, "C", sprintf("%02d", i-1), ".bin-gain.ome.png", sep = ""))
+    }
     if (length(bin1) > 0) {
       plot(count1, bin1, log="xy")
     }
@@ -138,8 +143,12 @@ func3 <- function(init_gain_csv, input, obj_path, obj_base, on_off) {
       y <- gains_c
       output[i] <- round(gain[[i]])
     }
-    
-    png(filename=paste(filebase, channel_name[channels[i]], "_gain.png", sep = ""))
+    if (on_off == "gain_bin") {
+      png(filename=paste(filebase, channel_name[channels[i]], "gain-bin_gain.png", sep = ""))
+    }
+    if (on_off == "bin_gain") {
+      png(filename=paste(filebase, channel_name[channels[i]], "bin-gain_gain.png", sep = ""))
+    }
     plot(x, y)
     
     #if (length(bins_c) >= 3) {
