@@ -361,41 +361,44 @@ def main(argv):
                         stage1after = True
                     ptime = time.time()
                     if coord_file and 'CAM' not in well_path:
-                        break
-                    print('Making max projections and '
-                          'calculating histograms')
-                    checked_img_paths = []
-                    for img_path in img_paths:
-                        img = imread(img_path)
-                        if len(img) == 512:
-                            checked_img_paths.append(img_path)
-                    max_projs = make_proj(checked_img_paths)
-                    for channel, proj in max_projs.iteritems():
-                        if proj.dtype.name == 'uint8':
-                            max_int = 255
-                        if proj.dtype.name == 'uint16':
-                            max_int = 65535
-                        histo = histogram(proj, 0, max_int, 256)
-                        rows = []
-                        for b, count in enumerate(histo):
-                            rows.append({'bin': b, 'count': count})
-                        new_dir = well_path+'/maxprojs/'
-                        if not os.path.exists(new_dir):
-                            os.makedirs(new_dir)
-                        p = new_dir+well_name+'--'+channel+'.ome.csv'
-                        write_csv(os.path.normpath(p), rows, ['bin', 'count'])
-                        csv_file = File(p)
-                        # Get the filebase from the csv path.
-                        filebase = csv_file.cut_path('C\d\d.+$')
-                        if 'CAM' not in well_path:
-                            filebases.append(filebase)
-                            fin_wells.append(well_name)
-                            if well_name == std_well:
-                                first_std_fbs.append(filebase)
-                        else:
-                            sec_std_fbs.append(filebase)
-                    print(str(time.time()-ptime)+' secs')
-                    begin = time.time()
+                        make_projs = False
+                    else:
+                        make_projs = True
+                    if make_projs == True:
+                        print('Making max projections and '
+                              'calculating histograms')
+                        checked_img_paths = []
+                        for img_path in img_paths:
+                            img = imread(img_path)
+                            if len(img) == 512:
+                                checked_img_paths.append(img_path)
+                        max_projs = make_proj(checked_img_paths)
+                        for channel, proj in max_projs.iteritems():
+                            if proj.dtype.name == 'uint8':
+                                max_int = 255
+                            if proj.dtype.name == 'uint16':
+                                max_int = 65535
+                            histo = histogram(proj, 0, max_int, 256)
+                            rows = []
+                            for b, count in enumerate(histo):
+                                rows.append({'bin': b, 'count': count})
+                            new_dir = well_path+'/maxprojs/'
+                            if not os.path.exists(new_dir):
+                                os.makedirs(new_dir)
+                            p = new_dir+well_name+'--'+channel+'.ome.csv'
+                            write_csv(os.path.normpath(p), rows, ['bin', 'count'])
+                            csv_file = File(p)
+                            # Get the filebase from the csv path.
+                            filebase = csv_file.cut_path('C\d\d.+$')
+                            if 'CAM' not in well_path:
+                                filebases.append(filebase)
+                                fin_wells.append(well_name)
+                                if well_name == std_well:
+                                    first_std_fbs.append(filebase)
+                            else:
+                                sec_std_fbs.append(filebase)
+                        print(str(time.time()-ptime)+' secs')
+                        begin = time.time()
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
 
