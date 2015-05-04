@@ -230,9 +230,6 @@ def main(argv):
                 for coord in ['dxPx', 'dyPx']:
                     coords[d['fov']].append(d[coord])
 
-    if stage_40x_before:
-
-
     # 10x gain job cam command in all selected wells
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
     for u in range(int(get_wfx(last_well))):
@@ -291,13 +288,12 @@ def main(argv):
     sec_gain_dicts = []
 
     while stage0:
-        #testing
         print('stage0')
         print('Time: '+str(time.time()))
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
             break
-        print('Searching for images...')
+        print('Waiting for images...')
         try:
             #if stage1:
             #    print('Stage1')
@@ -313,19 +309,22 @@ def main(argv):
             #    # Start CAM scan.
             #    sock.send(cstart)
             #    stage1 = False
-            img_dir_paths = img_dir.get_all_children()
-            for img_dir_path in img_dir_paths:
-                field_img_paths = Directory(img_dir_path).get_files('*.tif')
-                img_path = field_img_paths[0]
-                img = File(img_path)
+            reply = sock.recv_timeout(40, ['image--'])
+            # Parse reply, check well (UV), field (XY).
+            # Get well path.
+            # Get all image paths in well.
+            # Make a max proj per channel and well.
+            # Save meta data and image max proj.
+            if 'E00' in reply:
+                img_name = File(reply).get_name('image--.*.tif')
+                img_paths = img_dir.get_all_files(img_name)
+                img = File(img_paths[0])
+                well_name = img.get_name('U\d\d--V\d\d')
+                field_name = img.get_name('X\d\d--Y\d\d')
                 field_path = img.get_dir()
-                field = Directory(field_path)
-                field_name = field.get_name('X\d\d--Y\d\d')
-                well_path = field.get_dir()
-                #testing
-                #print(img_path)
+                well_path = Directory(field_path).get_dir()
                 well = Directory(well_path)
-                well_name = well.get_name('U\d\d--V\d\d')
+                img_paths = sorted(well.get_all_files('*.tif'))
                 if (well_name == std_well and stage2before):
                     print('Stage2')
                     time.sleep(3)
@@ -340,13 +339,12 @@ def main(argv):
                     # Start CAM scan.
                     sock.send(cstart)
                     stage2before = False
-                well_img_paths = sorted(well.get_all_files('*.tif'))
                 #testing
                 print('Imgs in well {} field {}: {}'.format(well_name,
                                                             field_name,
-                                                            len(well_img_paths)
+                                                            len(img_paths)
                                                             ))
-                if ((len(well_img_paths) == 33) &
+                if ((len(img_paths) == 33) &
                     (len(well.get_all_files('*.csv')) == 0)):
                     # Find first_std_path. Remove?
                     if (well_name == std_well and
@@ -367,7 +365,7 @@ def main(argv):
                     print('Making max projections and '
                           'calculating histograms')
                     checked_img_paths = []
-                    for img_path in well_img_paths:
+                    for img_path in img_paths:
                         img = imread(img_path)
                         if len(img) == 512:
                             checked_img_paths.append(img_path)
@@ -462,7 +460,6 @@ def main(argv):
                 except subprocess.CalledProcessError as e:
                     print('Subprocess returned a non-zero exit status:', e)
                     sys.exit()
-                # testing
                 print(r_output)
                 sec_gain_dicts = process_output(well, r_output, sec_gain_dicts)
             # empty lists for keeping csv file base path names
@@ -470,8 +467,8 @@ def main(argv):
             filebases = []
             fin_wells = []
 
-        print('Sleeping 5 secs...')
-        time.sleep(5)
+        #print('Sleeping 5 secs...')
+        #time.sleep(5)
         if stage1after and stage2after:
             stage0 = False
 
@@ -641,7 +638,7 @@ def main(argv):
             metadata_d = {}
             reply = sock.recv_timeout(40, ['image--'])
             # parse reply, check well (UV), job-order (E), field (XY),
-            # z slice (Z) and channel (C). Get well path.
+            # z slice (Z) and channel (C). Get field path.
             # Get all image paths in field. Rename images.
             # Make a max proj per channel and field.
             # Save meta data and image max proj.
@@ -650,7 +647,6 @@ def main(argv):
                 img_paths = img_dir.get_all_files(img_name)
                 if img_paths:
                     field_path = File(img_paths[0]).get_dir()
-                    #well_path = Directory(field_path).get_dir()
                     img_paths = Directory(field_path).get_all_files('*.tif')
                     new_paths = []
                     for img_path in img_paths:
