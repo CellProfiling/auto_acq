@@ -230,6 +230,9 @@ def main(argv):
                 for coord in ['dxPx', 'dyPx']:
                     coords[d['fov']].append(d[coord])
 
+    if stage_40x_before:
+
+
     # 10x gain job cam command in all selected wells
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
     for u in range(int(get_wfx(last_well))):
@@ -273,7 +276,7 @@ def main(argv):
     timeout = 300
     # start time
     begin = time.time()
-    
+
     # Not needed anymore?
     sec_std_path = ''
     first_std_path = ''
@@ -304,91 +307,93 @@ def main(argv):
             #    print(start_com)
             #    sock.send(start_com)
             #    time.sleep(3)
-            #    camstart = camstart_com(af_job_10x, afr_10x, afs_10x)
+            #    cstart = camstart_com(af_job_10x, afr_10x, afs_10x)
             #    # Start CAM scan.
-            #    print(camstart)
+            #    print(cstart)
             #    # Start CAM scan.
-            #    sock.send(camstart)
+            #    sock.send(cstart)
             #    stage1 = False
             img_dir_paths = img_dir.get_all_children()
             for img_dir_path in img_dir_paths:
                 field_img_paths = Directory(img_dir_path).get_files('*.tif')
-                if field_img_paths:
-                    img_path = field_img_paths[0]
-                    img = File(img_path)
-                    field_path = img.get_dir()
-                    field = Directory(field_path)
-                    well_path = field.get_dir()
-                    #testing
-                    #print(img_path)
-                    well = Directory(well_path)
-                    well_name = well.get_name('U\d\d--V\d\d')
-                    if (well_name == std_well and stage2before):
-                        print('Stage2')
-                        time.sleep(3)
-                        if stage2_40x_before:
-                            # Add 40x gain scan in std well to CAM list.
-                            sock.send(stage2_40x)
-                            camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
-                        if stage2_63x_before:
-                            # Add 63x gain scan in std well to CAM list.
-                            sock.send(stage2_63x)
-                            camstart = camstart_com(af_job_63x, afr_63x, afs_63x)
-                        # Start CAM scan.
-                        sock.send(camstart)
-                        stage2before = False
-                    well_img_paths = sorted(well.get_all_files('*.tif'))
-                    #testing
-                    print('Number of images per well: '+str(len(well_img_paths)))
-                    if ((len(well_img_paths) == 33) &
-                        (len(well.get_all_files('*.csv')) == 0)):
-                        # Find first_std_path. Remove?
-                        if (well_name == std_well and
-                              'CAM' not in well_path):
-                            first_std_path = well_path
-                        # Find sec_std_path. Remove?
-                        if (well_name == std_well and
-                              'CAM' in well_path):
-                            sec_std_path = well_path
-                        if 'CAM' in well_path:
-                            stage2after = True
-                        if ((well_name == last_well) and
-                            ('CAM' not in well_path)):
-                            stage1after = True
-                        ptime = time.time()
-                        print('Making max projections and calculating histograms')
-                        checked_img_paths = []
-                        for img_path in well_img_paths:
-                            img = imread(img_path)
-                            if len(img) == 512:
-                                checked_img_paths.append(img_path)
-                        max_projs = make_proj(checked_img_paths)
-                        for channel, proj in max_projs.iteritems():
-                            if proj.dtype.name == 'uint8':
-                                max_int = 255
-                            if proj.dtype.name == 'uint16':
-                                max_int = 65535
-                            histo = histogram(proj, 0, max_int, 256)
-                            rows = []
-                            for b, count in enumerate(histo):
-                                rows.append({'bin': b, 'count': count})
-                            new_dir = well_path+'/maxprojs/'
-                            if not os.path.exists(new_dir):
-                                os.makedirs(new_dir)
-                            p = new_dir+well_name+'--'+channel+'.ome.csv'
-                            write_csv(os.path.normpath(p), rows, ['bin', 'count'])
-                            csv_file = File(p)
-                            # Get the filebase from the csv path.
-                            filebase = csv_file.cut_path('C\d\d.+$')
-                            if 'CAM' not in well_path:
-                                filebases.append(filebase)
-                                fin_wells.append(well_name)
-                                if well_name == std_well:
-                                    first_std_fbs.append(filebase)
-                            else:
-                                sec_std_fbs.append(filebase)
-                        print(str(time.time()-ptime)+' secs')
-                        begin = time.time()
+                img_path = field_img_paths[0]
+                img = File(img_path)
+                field_path = img.get_dir()
+                field = Directory(field_path)
+                field_name = field.get_name('X\d\d--Y\d\d')
+                well_path = field.get_dir()
+                #testing
+                #print(img_path)
+                well = Directory(well_path)
+                well_name = well.get_name('U\d\d--V\d\d')
+                if (well_name == std_well and stage2before):
+                    print('Stage2')
+                    time.sleep(3)
+                    if stage2_40x_before:
+                        # Add 40x gain scan in std well to CAM list.
+                        sock.send(stage2_40x)
+                        cstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+                    if stage2_63x_before:
+                        # Add 63x gain scan in std well to CAM list.
+                        sock.send(stage2_63x)
+                        cstart = camstart_com(af_job_63x, afr_63x, afs_63x)
+                    # Start CAM scan.
+                    sock.send(cstart)
+                    stage2before = False
+                well_img_paths = sorted(well.get_all_files('*.tif'))
+                #testing
+                print('Number of images per well '+well_name+', field '+
+                      field_name+': ' +str(len(well_img_paths)))
+                if ((len(well_img_paths) == 33) &
+                    (len(well.get_all_files('*.csv')) == 0)):
+                    # Find first_std_path. Remove?
+                    if (well_name == std_well and
+                          'CAM' not in well_path):
+                        first_std_path = well_path
+                    # Find sec_std_path. Remove?
+                    if (well_name == std_well and
+                          'CAM' in well_path):
+                        sec_std_path = well_path
+                    if 'CAM' in well_path:
+                        stage2after = True
+                    if ((well_name == last_well) and
+                        ('CAM' not in well_path)):
+                        stage1after = True
+                    ptime = time.time()
+                    print('Making max projections and '
+                          'calculating histograms')
+                    checked_img_paths = []
+                    for img_path in well_img_paths:
+                        img = imread(img_path)
+                        if len(img) == 512:
+                            checked_img_paths.append(img_path)
+                    max_projs = make_proj(checked_img_paths)
+                    for channel, proj in max_projs.iteritems():
+                        if proj.dtype.name == 'uint8':
+                            max_int = 255
+                        if proj.dtype.name == 'uint16':
+                            max_int = 65535
+                        histo = histogram(proj, 0, max_int, 256)
+                        rows = []
+                        for b, count in enumerate(histo):
+                            rows.append({'bin': b, 'count': count})
+                        new_dir = well_path+'/maxprojs/'
+                        if not os.path.exists(new_dir):
+                            os.makedirs(new_dir)
+                        p = new_dir+well_name+'--'+channel+'.ome.csv'
+                        write_csv(os.path.normpath(p), rows, ['bin', 'count'])
+                        csv_file = File(p)
+                        # Get the filebase from the csv path.
+                        filebase = csv_file.cut_path('C\d\d.+$')
+                        if 'CAM' not in well_path:
+                            filebases.append(filebase)
+                            fin_wells.append(well_name)
+                            if well_name == std_well:
+                                first_std_fbs.append(filebase)
+                        else:
+                            sec_std_fbs.append(filebase)
+                    print(str(time.time()-ptime)+' secs')
+                    begin = time.time()
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
 
@@ -426,9 +431,16 @@ def main(argv):
                                                         filebases[i],
                                                         first_initialgains_file
                                                         ])
-                    first_gain_dicts = process_output(well, r_output, first_gain_dicts)
-                    input_gains = (''+r_output.split()[0]+' '+r_output.split()[1]+' '+
-                                    r_output.split()[2]+' '+r_output.split()[3]+'')
+                    first_gain_dicts = process_output(well,
+                                                      r_output,
+                                                      first_gain_dicts
+                                                      )
+                    input_gains = (''+
+                                   r_output.split()[0]+' '+
+                                   r_output.split()[1]+' '+
+                                   r_output.split()[2]+' '+
+                                   r_output.split()[3]+''
+                                   )
                     r_output = subprocess.check_output(['Rscript',
                                                         sec_r_script,
                                                         imaging_dir,
@@ -502,14 +514,14 @@ def main(argv):
 
     if stage3:
         print('Stage3')
-        camstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+        cstart = camstart_com(af_job_40x, afr_40x, afs_40x)
         stage_dict = green_sorted
         job_list = job_40x
         pattern_list = pattern_40x
         enable = 'true'
     if stage4:
         print('Stage4')
-        camstart = camstart_com(af_job_63x, afr_63x, afs_63x)
+        cstart = camstart_com(af_job_63x, afr_63x, afs_63x)
         channels = range(4)
         wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
         stage_dict = wells
@@ -609,8 +621,8 @@ def main(argv):
         sock.send(start_com)
         time.sleep(3)
         # Start CAM scan.
-        print(camstart)
-        sock.send(camstart)
+        print(cstart)
+        sock.send(cstart)
         time.sleep(3)
         if stage3:
             sock.recv_timeout(40, end_com_list[i])
