@@ -256,8 +256,8 @@ def main(argv):
                   '\n'+
                   cam_com(g_job_63x, std_well, 'X01--Y01', '0', '0'))
 
-    start_com = '/cli:1 /app:matrix /cmd:startscan'
-    stop_com = '/cli:1 /app:matrix /cmd:stopscan'
+    start_com = '/cli:1 /app:matrix /cmd:startscan\n'
+    stop_com = '/cli:1 /app:matrix /cmd:stopscan\n'
 
     # Create imaging directory object
     img_dir = Directory(imaging_dir)
@@ -386,7 +386,10 @@ def main(argv):
                             if not os.path.exists(new_dir):
                                 os.makedirs(new_dir)
                             p = new_dir+well_name+'--'+channel+'.ome.csv'
-                            write_csv(os.path.normpath(p), rows, ['bin', 'count'])
+                            write_csv(os.path.normpath(p),
+                                      rows,
+                                      ['bin', 'count']
+                                      )
                             csv_file = File(p)
                             # Get the filebase from the csv path.
                             filebase = csv_file.cut_path('C\d\d.+$')
