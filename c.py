@@ -234,7 +234,7 @@ def main(argv):
 
 
     # 10x gain job cam command in all selected wells
-    stage1_com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
+    stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
     for u in range(int(get_wfx(last_well))):
         for v in range(int(get_wfy(last_well))):
             for i in range(2):
@@ -248,13 +248,13 @@ def main(argv):
                               '\n')
 
     # 40x gain job cam command in standard well
-    stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
+    stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
                   cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
                   cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0'))
 
     # 63x gain job cam command in standard well
-    stage2_63x = ('/cli:1 /app:matrix /cmd:deletelist'+'\n'+
+    stage2_63x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
                   cam_com(g_job_63x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
                   cam_com(g_job_63x, std_well, 'X01--Y01', '0', '0'))
@@ -342,8 +342,10 @@ def main(argv):
                     stage2before = False
                 well_img_paths = sorted(well.get_all_files('*.tif'))
                 #testing
-                print('Number of images per well '+well_name+', field '+
-                      field_name+': ' +str(len(well_img_paths)))
+                print('Imgs in well {} field {}: {}'.format(well_name,
+                                                            field_name,
+                                                            len(well_img_paths)
+                                                            ))
                 if ((len(well_img_paths) == 33) &
                     (len(well.get_all_files('*.csv')) == 0)):
                     # Find first_std_path. Remove?
@@ -437,12 +439,13 @@ def main(argv):
                                                       r_output,
                                                       first_gain_dicts
                                                       )
-                    input_gains = (''+
-                                   r_output.split()[0]+' '+
-                                   r_output.split()[1]+' '+
-                                   r_output.split()[2]+' '+
-                                   r_output.split()[3]+''
-                                   )
+                    #input_gains = (''+
+                    #               r_output.split()[0]+' '+
+                    #               r_output.split()[1]+' '+
+                    #               r_output.split()[2]+' '+
+                    #               r_output.split()[3]+''
+                    #               )
+                    input_gains = r_output
                     r_output = subprocess.check_output(['Rscript',
                                                         sec_r_script,
                                                         imaging_dir,
@@ -488,8 +491,8 @@ def main(argv):
     gains = defaultdict(list)
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
-    com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
-    end_com = ['/cli:1 /app:matrix /cmd:deletelist'+'\n']
+    com = '/cli:1 /app:matrix /cmd:deletelist\n'
+    end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
     dx = 0
     dy = 0
     pattern = -1
@@ -554,7 +557,7 @@ def main(argv):
             # Store the commands in lists, after one well at least.
             com_list.append(com)
             end_com_list.append(end_com)
-            com = '/cli:1 /app:matrix /cmd:deletelist'+'\n'
+            com = '/cli:1 /app:matrix /cmd:deletelist\n'
         for i, c in enumerate(channels):
             if stage3:
                 set_gain = str(c)
@@ -578,7 +581,7 @@ def main(argv):
                     for j in range(2):
                         if stage4:
                             # Only enable selected wells from file (arg)
-                            fov = well+'--X0'+str(j)+'--Y0'+str(i)
+                            fov = '{}--X0{}--Y0{}'.format(well, j, i)
                             if fov in coords.keys():
                                 enable = 'true'
                                 dx = coords[fov][0]
@@ -587,21 +590,22 @@ def main(argv):
                                 enable = 'false'
                         com = (com +
                                    enable_com(well,
-                                              'X0'+str(j)+'--Y0'+str(i),
+                                              'X0{}--Y0{}'.format(j, i),
                                               enable
                                               )+
                                    '\n'+
+                                   # dx dy switched, scan rotation -90 degrees
                                    cam_com(pattern_list,
                                            well,
-                                           'X0'+str(j)+'--Y0'+str(i),
-                                           str(dx),
-                                           str(dy)
+                                           'X0{}--Y0{}'.format(j, i),
+                                           str(dy),
+                                           str(dx)
                                            )+
                                    '\n')
                         end_com = ['CAM',
                                     well,
                                     'E03',
-                                    'X0'+str(j)+'--Y0'+str(i)
+                                    'X0{}--Y0{}'.format(j, i)
                                     ]
 
     # Store the last unstored commands in lists, after one well at least.
