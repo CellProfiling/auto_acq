@@ -360,6 +360,8 @@ def main(argv):
                         ('CAM' not in well_path)):
                         stage1after = True
                     ptime = time.time()
+                    if coord_file and 'CAM' not in well_path:
+                        break
                     print('Making max projections and '
                           'calculating histograms')
                     checked_img_paths = []
@@ -606,6 +608,8 @@ def main(argv):
     com_list.append(com)
     end_com_list.append(end_com)
 
+    make_projs = False
+
     for i, com in enumerate(com_list):
         # Stop scan
         print(stop_com)
@@ -637,46 +641,47 @@ def main(argv):
             # Make a max proj per channel. Save meta data and image max proj.
             img_name = File(reply).get_name('image--.*')
             img_paths = img_dir.get_all_files(img_name)
-            field_path = File(img_paths[0]).get_dir()
-            well_path = Directory(field_path).get_dir()
-            img_paths = Directory(field_path).get_all_files('*.tif')
-            new_paths = []
-            for img_path in img_paths:
-                img = File(img_path)
-                well = img.get_name('U\d\d--V\d\d')
-                job_order = img.get_name('E\d\d')
-                field = img.get_name('X\d\d--Y\d\d')
-                z_slice = img.get_name('Z\d\d')
-                channel = img.get_name('C\d\d')
-                if job_order == 'E00':
-                    make_projs = False
-                else
-                    make_projs = True
-                if job_order == 'E01':
-                    new_name = img_path[0:-11]+'C00.ome.tif'
-                    channel = 'C00'
-                if job_order == 'E02' and channel == 'C00':
-                    new_name = img_path[0:-11]+'C01.ome.tif'
-                    channel = 'C01'
-                if job_order == 'E02' and channel == 'C01':
-                    new_name = img_path[0:-11]+'C02.ome.tif'
-                    channel = 'C02'
-                if job_order == 'E03':
-                    new_name = img_path[0:-11]+'C03.ome.tif'
-                    channel = 'C03'
-                os.rename(img_path, new_name)
-                if (job_order == 'E01' or job_order == 'E02' or
-                    job_order == 'E03'):
-                    new_paths.append(new_name)
-                    metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
-            if make_projs:
-                max_projs = make_proj(new_paths)
-                new_dir = imaging_dir+'/maxprojs/'
-                if not os.path.exists(new_dir): os.makedirs(new_dir)
-                for channel, proj in max_projs.iteritems():
-                    p = new_dir+well+'--'+field+'--'+channel+'.tif'
-                    metadata = metadata_d[well+'--'+field+'--'+channel]
-                    imsave(p, proj, description=metadata)
+            if img_paths:
+                field_path = File(img_paths[0]).get_dir()
+                well_path = Directory(field_path).get_dir()
+                img_paths = Directory(field_path).get_all_files('*.tif')
+                new_paths = []
+                for img_path in img_paths:
+                    img = File(img_path)
+                    well = img.get_name('U\d\d--V\d\d')
+                    job_order = img.get_name('E\d\d')
+                    field = img.get_name('X\d\d--Y\d\d')
+                    z_slice = img.get_name('Z\d\d')
+                    channel = img.get_name('C\d\d')
+                    if job_order == 'E00':
+                        make_projs = False
+                    else:
+                        make_projs = True
+                    if job_order == 'E01':
+                        new_name = img_path[0:-11]+'C00.ome.tif'
+                        channel = 'C00'
+                    if job_order == 'E02' and channel == 'C00':
+                        new_name = img_path[0:-11]+'C01.ome.tif'
+                        channel = 'C01'
+                    if job_order == 'E02' and channel == 'C01':
+                        new_name = img_path[0:-11]+'C02.ome.tif'
+                        channel = 'C02'
+                    if job_order == 'E03':
+                        new_name = img_path[0:-11]+'C03.ome.tif'
+                        channel = 'C03'
+                    os.rename(img_path, new_name)
+                    if (job_order == 'E01' or job_order == 'E02' or
+                        job_order == 'E03'):
+                        new_paths.append(new_name)
+                        metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
+                if make_projs:
+                    max_projs = make_proj(new_paths)
+                    new_dir = imaging_dir+'/maxprojs/'
+                    if not os.path.exists(new_dir): os.makedirs(new_dir)
+                    for channel, proj in max_projs.iteritems():
+                        p = new_dir+well+'--'+field+'--'+channel+'.tif'
+                        metadata = metadata_d[well+'--'+field+'--'+channel]
+                        imsave(p, proj, description=metadata)
             if all(test in reply for test in end_com_list[i]):
                 stage5 = False
         time.sleep(3)
