@@ -541,18 +541,21 @@ def main(argv):
                         ]
         if stage4:
             # Check if well no 1-4 or 5-8 etc and continuous.
-            if ((round((float(k)+1)/4) % 2 == odd_even) |
-                (old_well_no + 1 != k)):
+            if round((float(k)+1)/4) % 2 == odd_even:
                 pattern = 0
                 start_of_part = True
                 if odd_even == 0:
                     odd_even = 1
                 else:
                     odd_even = 0
+            elif old_well_no + 1 != k:
+                pattern = 0
+                start_of_part = True
             else:
-                pattern =+ 1
+                pattern += 1
                 start_of_part = False
             pattern_list = pattern_63x[pattern]
+            old_well_no = k
         if start_of_part:
             # Store the commands in lists, after one well at least.
             com_list.append(com)
