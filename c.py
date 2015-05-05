@@ -344,7 +344,7 @@ def main(argv):
                                                             field_name,
                                                             len(img_paths)
                                                             ))
-                if ((len(img_paths) == 33) &
+                if ((len(img_paths) == 66) &
                     (len(well.get_all_files('*.csv')) == 0)):
                     # Find first_std_path. Remove?
                     if (well_name == std_well and
@@ -600,12 +600,12 @@ def main(argv):
                                               enable
                                               )+
                                    '\n'+
-                                   # dx dy switched, scan rotation -90 degrees
+                                   # dx dy neg+switched, scan rot -90 degrees
                                    cam_com(pattern_list,
                                            well,
                                            'X0{}--Y0{}'.format(j, i),
-                                           str(dy),
-                                           str(dx)
+                                           str(-int(dy)),
+                                           str(-int(dx))
                                            )+
                                    '\n')
                         end_com = ['CAM',
@@ -622,7 +622,7 @@ def main(argv):
         # Stop scan
         print(stop_com)
         sock.send(stop_com)
-        time.sleep(3)
+        time.sleep(5)
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         print(com)
@@ -642,7 +642,7 @@ def main(argv):
             stage5 = True
         while stage5:
             metadata_d = {}
-            reply = sock.recv_timeout(40, ['image--'])
+            reply = sock.recv_timeout(120, ['image--'])
             # parse reply, check well (UV), job-order (E), field (XY),
             # z slice (Z) and channel (C). Get field path.
             # Get all image paths in field. Rename images.
@@ -676,7 +676,6 @@ def main(argv):
                         if job_order == 'E03':
                             new_name = img_path[0:-11]+'C03.ome.tif'
                             channel = 'C03'
-                        os.rename(img_path, new_name)
                         if (job_order == 'E01' or job_order == 'E02' or
                             job_order == 'E03'):
                             new_paths.append(new_name)
@@ -686,6 +685,7 @@ def main(argv):
                                        '--'+
                                        channel
                                        ] = img.meta_data()
+                        os.rename(img_path, new_name)
                     max_projs = make_proj(new_paths)
                     new_dir = imaging_dir+'/maxprojs/'
                     if not os.path.exists(new_dir): os.makedirs(new_dir)
