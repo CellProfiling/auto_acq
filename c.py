@@ -488,19 +488,20 @@ def main(argv):
     # Lists for storing command strings.
     com_list = []
     end_com_list = []
-
-    odd_even = 0
-    wells = defaultdict()
-    gains = defaultdict(list)
-    green_sorted = defaultdict(list)
-    medians = defaultdict(int)
     com = '/cli:1 /app:matrix /cmd:deletelist\n'
     end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
+
+    odd_even = 0
     dx = 0
     dy = 0
     pattern = -1
     start_of_part = False
     prev_well = ''
+
+    wells = defaultdict()
+    gains = defaultdict(list)
+    green_sorted = defaultdict(list)
+    medians = defaultdict(int)
 
     for c in ['green', 'blue', 'yellow', 'red']:
         mlist = []
