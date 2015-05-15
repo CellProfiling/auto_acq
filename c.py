@@ -517,6 +517,7 @@ def main(argv):
                 # blue, yellow and red channels.
                 mlist.append(int(d[c]))
                 medians[c] = int(np.median(mlist))
+    wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
 
     if stage3:
         print('Stage3')
@@ -529,7 +530,6 @@ def main(argv):
         print('Stage4')
         cstart = camstart_com(af_job_63x, afr_63x, afs_63x)
         channels = range(4)
-        wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
         stage_dict = wells
         old_well_no = wells.items()[0][0]-1
         job_list = job_63x
