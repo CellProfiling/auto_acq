@@ -5,13 +5,10 @@ import subprocess
 import re
 import time
 import csv
-from lxml import etree
 import numpy as np
 from scipy.misc import imread
 from tifffile import imsave
 from scipy.ndimage.measurements import histogram
-from itertools import  combinations
-from itertools import groupby
 from collections import OrderedDict
 from collections import defaultdict
 from control_class import Base
