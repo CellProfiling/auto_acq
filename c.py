@@ -143,16 +143,16 @@ def get_imgs(path, imdir, img_save=None, csv_save=None):
         if job_order == 'E00':
             new_name = img_path
         if job_order == 'E01':
-            new_name = img_path[0:-11]+'C00.ome.tif'
+            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C00.ome.tif'
             channel = 'C00'
         if job_order == 'E02' and channel == 'C00':
-            new_name = img_path[0:-11]+'C01.ome.tif'
+            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C01.ome.tif'
             channel = 'C01'
         if job_order == 'E02' and channel == 'C01':
-            new_name = img_path[0:-11]+'C02.ome.tif'
+            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
             channel = 'C02'
         if job_order == 'E03':
-            new_name = img_path[0:-11]+'C03.ome.tif'
+            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
             channel = 'C03'
         if len(image) == 512 or len(image) == 2048:
             new_paths.append(new_name)
@@ -164,7 +164,7 @@ def get_imgs(path, imdir, img_save=None, csv_save=None):
         os.makedirs(new_dir)
     for channel, proj in max_projs.iteritems():
         if img_save:
-            p = new_dir+well+'--'+field+'--'+channel+'.tif'
+            p = new_dir+'image--'+well+'--'+field+'--'+channel+'.tif'
             metadata = metadata_d[well+'--'+field+'--'+channel]
             imsave(p, proj, description=metadata)
         if csv_save:
