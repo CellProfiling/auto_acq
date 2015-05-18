@@ -125,10 +125,10 @@ def make_proj(img_list):
         print('No images to produce max projection.' , e)
 
 def get_imgs(path, imdir, img_save=None, csv_save=None):
-    if img_save = None:
-        if img_save = True
-    if csv_save = None:
-        if csv_save = True
+    if img_save is None:
+        img_save = True
+    if csv_save is None:
+        csv_save = True
     img_paths = Directory(path).get_all_files('*.tif')
     new_paths = []
     metadata_d = {}
@@ -178,7 +178,7 @@ def get_imgs(path, imdir, img_save=None, csv_save=None):
                 rows.append({'bin': b, 'count': count})
             p = new_dir+well+'--'+channel+'.ome.csv'
             write_csv(os.path.normpath(p), rows, ['bin', 'count'])
-    return pass
+    return
 
 def main(argv):
     """Main function"""
@@ -377,6 +377,7 @@ def main(argv):
                 img = File(img_paths[0])
                 well_name = img.get_name('U\d\d--V\d\d')
                 field_name = img.get_name('X\d\d--Y\d\d')
+                channel = img.get_name('C\d\d')
                 field_path = img.get_dir()
                 well_path = Directory(field_path).get_dir()
                 if (well_name == std_well and stage2before):
@@ -393,7 +394,7 @@ def main(argv):
                     # Start CAM scan.
                     sock.send(cstart)
                     stage2before = False
-                if field_name == last_field:
+                if field_name == last_field and channel == 'C31':
                     if 'CAM' in well_path:
                         stage2after = True
                         if well_name == std_well:
@@ -613,12 +614,12 @@ def main(argv):
                                               enable
                                               )+
                                    '\n'+
-                                   # dx dy neg+switched, scan rot -90 degrees
+                                   # dx dy switched, scan rot -90 degrees
                                    cam_com(pattern_list,
                                            well,
                                            'X0{}--Y0{}'.format(j, i),
-                                           str(-int(dy)),
-                                           str(-int(dx))
+                                           str(dy),
+                                           str(dx)
                                            )+
                                    '\n')
                             end_com = ['CAM',
