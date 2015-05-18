@@ -445,16 +445,14 @@ def main(argv):
             sec_std_fbs = sorted(set(sec_std_fbs))
             # Get a unique set of names of the experiment wells.
             fin_wells = sorted(set(fin_wells))
-            for i in range(len(filebases)):
-                well = fin_wells[i]
-                #print(filebases[i])
+            for fbase, well in zip(filebases, fin_wells):
                 print(well)
                 try:
                     print('Starting R...')
                     r_output = subprocess.check_output(['Rscript',
                                                         first_r_script,
                                                         imaging_dir,
-                                                        filebases[i],
+                                                        fbase,
                                                         first_initialgains_file
                                                         ])
                     first_gain_dicts = process_output(well,
@@ -669,7 +667,7 @@ def main(argv):
                     get_imgs(field_path, imaging_dir, csv_save=False)
                 except IndexError as e:
                     print('No images yet... but maybe later?' , e)
-            if all(test in reply for test in end_com_list[i]):
+            if all(test in reply for test in end_com):
                 stage5 = False
         time.sleep(3)
         # Stop scan
