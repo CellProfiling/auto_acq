@@ -402,11 +402,16 @@ def main(argv):
                     if ((well_name == last_well) and
                         ('CAM' not in well_path)):
                         stage1after = True
-                    ptime = time.time()
+                    if stage1after and stage2after:
+                        stage0 = False
+                        print(stop_com)
+                        sock.send(stop_com)
+                        time.sleep(5)
                     if coord_file and 'CAM' not in well_path:
                         make_projs = False
                     else:
                         make_projs = True
+                    ptime = time.time()
                     if make_projs:
                         print('Making max projections and '
                               'calculating histograms')
@@ -482,11 +487,6 @@ def main(argv):
             # and corresponding well names
             filebases = []
             fin_wells = []
-
-        #print('Sleeping 5 secs...')
-        #time.sleep(5)
-        if stage1after and stage2after:
-            stage0 = False
 
     write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'),
               first_gain_dicts,
@@ -632,9 +632,9 @@ def main(argv):
 
     for com, end_com in zip(com_list, end_com_list):
         # Stop scan
-        print(stop_com)
-        sock.send(stop_com)
-        time.sleep(5)
+        #print(stop_com)
+        #sock.send(stop_com)
+        #time.sleep(5)
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         print(com)
@@ -669,7 +669,7 @@ def main(argv):
                     print('No images yet... but maybe later?' , e)
             if all(test in reply for test in end_com):
                 stage5 = False
-        time.sleep(3)
+        #time.sleep(3)
         # Stop scan
         print(stop_com)
         sock.send(stop_com)
