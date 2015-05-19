@@ -140,20 +140,20 @@ def get_imgs(path, imdir, img_save=None, csv_save=None):
         field = img.get_name('X\d\d--Y\d\d')
         z_slice = img.get_name('Z\d\d')
         channel = img.get_name('C\d\d')
-        if job_order == 'E00':
-            new_name = img_path
         if job_order == 'E01':
-            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C00.ome.tif'
+            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C00.ome.tif'
             channel = 'C00'
-        if job_order == 'E02' and channel == 'C00':
-            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C01.ome.tif'
+        elif job_order == 'E02' and channel == 'C00':
+            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C01.ome.tif'
             channel = 'C01'
-        if job_order == 'E02' and channel == 'C01':
-            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
+        elif job_order == 'E02' and channel == 'C01':
+            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
             channel = 'C02'
-        if job_order == 'E03':
-            new_name = 'image--'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
+        elif job_order == 'E03':
+            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
             channel = 'C03'
+        else:
+            new_name = img_path
         if len(image) == 512 or len(image) == 2048:
             new_paths.append(new_name)
             metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
