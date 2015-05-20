@@ -548,7 +548,6 @@ def main(argv):
         stage_dict = wells
         old_well_no = wells.items()[0][0]-1
         job_list = job_63x
-        fov_is = False
     for k, v in stage_dict.iteritems():
         if stage3:
             channels = [k,
@@ -557,6 +556,7 @@ def main(argv):
                         medians['red']
                         ]
         if stage4:
+            fov_is = False
             # Check if well no 1-4 or 5-8 etc and continuous.
             if round((float(k)+1)/4) % 2 == odd_even:
                 pattern = 0
@@ -597,8 +597,7 @@ def main(argv):
         for well in v:
             if stage4:
                 well = v
-                fov_is = False
-            print(well)
+            #print(well)
             if well != prev_well:
                 prev_well = well
                 for i in range(2):
@@ -633,10 +632,10 @@ def main(argv):
                                        'E03',
                                        'X0{}--Y0{}'.format(j, i)
                                        ]
-
-    # Store the last unstored commands in lists, after one well at least.
-    com_list.append(com)
-    end_com_list.append(end_com)
+    if fov_is:
+        # Store the last unstored commands in lists, after one well at least.
+        com_list.append(com)
+        end_com_list.append(end_com)
 
     for com, end_com in zip(com_list, end_com_list):
         # Stop scan
