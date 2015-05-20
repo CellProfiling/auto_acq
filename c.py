@@ -256,7 +256,7 @@ def main(argv):
     g_job_40x = 'gain40x'
     g_job_63x = 'gain63x'
     job_40x = ['job7', 'job8', 'job9']
-    pattern_40x = 'pattern2'
+    pattern_40x = ['pattern2']
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
                'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
@@ -537,8 +537,10 @@ def main(argv):
         cstart = camstart_com(af_job_40x, afr_40x, afs_40x)
         stage_dict = green_sorted
         job_list = job_40x
+        pattern = 0
         pattern_list = pattern_40x
         enable = 'true'
+        fov_is = True
     if stage4:
         print('Stage4')
         cstart = camstart_com(af_job_63x, afr_63x, afs_63x)
@@ -546,6 +548,7 @@ def main(argv):
         stage_dict = wells
         old_well_no = wells.items()[0][0]-1
         job_list = job_63x
+        fov_is = False
     for k, v in stage_dict.iteritems():
         if stage3:
             channels = [k,
@@ -570,10 +573,13 @@ def main(argv):
                 start_of_part = False
             pattern_list = pattern_63x[pattern]
             old_well_no = k
-        if start_of_part:
+        if start_of_part and fov_is:
             # Store the commands in lists, after one well at least.
             com_list.append(com)
             end_com_list.append(end_com)
+            com = '/cli:1 /app:matrix /cmd:deletelist\n'
+        elif start_of_part and not fov_is:
+            # reset the com string
             com = '/cli:1 /app:matrix /cmd:deletelist\n'
         for i, c in enumerate(channels):
             if stage3:
@@ -583,14 +589,15 @@ def main(argv):
                 set_gain = str(gains[v][i])
             if i < 2:
                 detector = '1'
-                job = job_list[i]
+                job = job_list[i + 3*pattern]
             if i >= 2:
                 detector = '2'
-                job = job_list[i-1]
+                job = job_list[i - 1 + 3*pattern]
             com = com + gain_com(job, detector, set_gain) + '\n'
         for well in v:
             if stage4:
                 well = v
+                fov_is = False
             print(well)
             if well != prev_well:
                 prev_well = well
@@ -603,6 +610,7 @@ def main(argv):
                                 enable = 'true'
                                 dx = coords[fov][0]
                                 dy = coords[fov][1]
+                                fov_is = True
                             else:
                                 enable = 'false'
                         if enable == 'true' or stage3:
