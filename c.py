@@ -548,6 +548,7 @@ def main(argv):
         stage_dict = wells
         old_well_no = wells.items()[0][0]-1
         job_list = job_63x
+        fov_is = False
     for k, v in stage_dict.iteritems():
         if stage3:
             channels = [k,
@@ -556,7 +557,6 @@ def main(argv):
                         medians['red']
                         ]
         if stage4:
-            fov_is = False
             # Check if well no 1-4 or 5-8 etc and continuous.
             if round((float(k)+1)/4) % 2 == odd_even:
                 pattern = 0
@@ -578,9 +578,11 @@ def main(argv):
             com_list.append(com)
             end_com_list.append(end_com)
             com = '/cli:1 /app:matrix /cmd:deletelist\n'
+            fov_is = False
         elif start_of_part and not fov_is:
             # reset the com string
             com = '/cli:1 /app:matrix /cmd:deletelist\n'
+            fov_is = False
         for i, c in enumerate(channels):
             if stage3:
                 set_gain = str(c)
