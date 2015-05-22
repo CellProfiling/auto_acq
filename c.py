@@ -85,30 +85,35 @@ def cam_com(_job, _well, _field, _dx, _dy):
             )
     return _com
 
-def process_output(_well, output, dl):
+def process_output(well, output, dict_list):
     """Function to process output from the R scripts."""
+    for c in output.split():
+        dict_list[well].append(c)
+    return dict_list
 
-    dl.append({'well': _well,
-              'green': output.split()[0],
-              'blue': output.split()[1],
-              'yellow': output.split()[2],
-              'red': output.split()[3]
-              })
-    return dl
+def read_csv(path, index, keys, dict):
+    """Read a csv file and return a dictionary of lists."""
+    with open(path) as f:
+        reader = csv.DictReader(f)
+        for d in reader:
+            for key in keys:
+                dict[d[index]].append(d[key])
+    return dict
 
-def write_csv(path, dict_list, keys):
+def write_csv(path, list_dicts, keys):
     """Function to write a list of dicts as a csv file."""
 
     with open(path, 'wb') as f:
         w = csv.DictWriter(f, keys)
         w.writeheader()
-        w.writerows(dict_list)
+        w.writerows(list_dicts)
 
 def make_proj(img_list):
     """Function to make a dict of max projections from a list of paths
     to images. Each channel will make one max projection"""
     channels = []
     try:
+        ptime = time.time()
         for path in img_list:
             channel = File(path).get_name('C\d\d')
             channels.append(channel)
@@ -120,16 +125,17 @@ def make_proj(img_list):
                 if channel == File(path).get_name('C\d\d'):
                     images.append(imread(path))
             max_imgs[channel] = np.maximum.reduce(images)
+        print('Max proj:'+str(time.time()-ptime)+' secs')
         return max_imgs
     except IndexError as e:
         print('No images to produce max projection.' , e)
 
-def get_imgs(path, imdir, img_save=None, csv_save=None):
+def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
     if img_save is None:
         img_save = True
     if csv_save is None:
         csv_save = True
-    img_paths = Directory(path).get_all_files('*.tif')
+    img_paths = Directory(path).get_all_files('*'+job_order+'*.tif')
     new_paths = []
     metadata_d = {}
     for img_path in img_paths:
@@ -163,6 +169,7 @@ def get_imgs(path, imdir, img_save=None, csv_save=None):
     if not os.path.exists(new_dir):
         os.makedirs(new_dir)
     for channel, proj in max_projs.iteritems():
+        ptime = time.time()
         if img_save:
             p = new_dir+'image--'+well+'--'+field+'--'+channel+'.tif'
             metadata = metadata_d[well+'--'+field+'--'+channel]
@@ -178,6 +185,7 @@ def get_imgs(path, imdir, img_save=None, csv_save=None):
                 rows.append({'bin': b, 'count': count})
             p = new_dir+well+'--'+channel+'.ome.csv'
             write_csv(os.path.normpath(p), rows, ['bin', 'count'])
+        print('Save image:'+str(time.time()-ptime)+' secs')
     return
 
 def main(argv):
@@ -193,7 +201,8 @@ def main(argv):
                                                  'finwell=',
                                                  'finfield=',
                                                  'coords=',
-                                                 'host='
+                                                 'host=',
+                                                 'inputgain='
                                                  ])
     except getopt.GetoptError as e:
         print e
@@ -212,6 +221,7 @@ def main(argv):
     last_well = 'U00--V00'
     last_field = 'X01--Y01'
     coord_file = None
+    sec_gain_file = None
     host = ''
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -235,6 +245,8 @@ def main(argv):
             coord_file = os.path.normpath(arg) #
         elif opt in ('--host'):
             host = arg
+        elif opt in ('--inputgain'):
+            sec_gain_file = arg
         else:
             assert False, 'Unhandled option!'
 
@@ -280,11 +292,7 @@ def main(argv):
         stage3 = False
         stage4 = True
         coords = defaultdict(list)
-        with open(coord_file) as _file:
-            reader = csv.DictReader(_file)
-            for d in reader:
-                for coord in ['dxPx', 'dyPx']:
-                    coords[d['fov']].append(d[coord])
+        coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'], coords)
 
     # 10x gain job cam command in all selected wells
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
@@ -314,6 +322,7 @@ def main(argv):
 
     start_com = '/cli:1 /app:matrix /cmd:startscan\n'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan\n'
+    stop_cam_com = '/cli:1 /app:matrix /cmd:stopcamscan\n'
 
     # Create imaging directory object
     img_dir = Directory(imaging_dir)
@@ -340,12 +349,15 @@ def main(argv):
     sec_std_fbs = []
     fin_wells = []
 
-    first_gain_dicts = []
-    sec_gain_dicts = []
+    first_gain_dict = defaultdict(list)
+    sec_gain_dict = defaultdict(list)
+
+    if sec_gain_file:
+        stage0 = False
 
     while stage0:
         print('stage0')
-        print('Time: '+str(time.time()))
+        print('Time: '+str(time.time()-begin)+' secs')
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
             break
@@ -415,7 +427,7 @@ def main(argv):
                     if make_projs:
                         print('Making max projections and '
                               'calculating histograms')
-                        get_imgs(well_path, well_path, img_save=False)
+                        get_imgs(well_path, well_path, 'E00', img_save=False)
                         print(str(time.time()-ptime)+' secs')
                         begin = time.time()
             # get all CSVs and wells
@@ -460,9 +472,9 @@ def main(argv):
                                                         fbase,
                                                         first_initialgains_file
                                                         ])
-                    first_gain_dicts = process_output(well,
+                    first_gain_dict = process_output(well,
                                                       r_output,
-                                                      first_gain_dicts
+                                                      first_gain_dict
                                                       )
                     input_gains = r_output
                     r_output = subprocess.check_output(['Rscript',
@@ -482,18 +494,32 @@ def main(argv):
                     print('Subprocess returned a non-zero exit status:', e)
                     sys.exit()
                 print(r_output)
-                sec_gain_dicts = process_output(well, r_output, sec_gain_dicts)
+                sec_gain_dict = process_output(well, r_output, sec_gain_dict)
             # empty lists for keeping csv file base path names
             # and corresponding well names
             filebases = []
             fin_wells = []
 
-    write_csv(os.path.normpath(working_dir+'/first_output_gains.csv'),
-              first_gain_dicts,
-              ['well', 'green', 'blue', 'yellow', 'red'])
-    write_csv(os.path.normpath(working_dir+'/sec_output_gains.csv'),
-              sec_gain_dicts,
-              ['well', 'green', 'blue', 'yellow', 'red'])
+    if not sec_gain_file:
+        header = ['well', 'green', 'blue', 'yellow', 'red']
+        csv_files = ['first_output_gains.csv', 'sec_output_gains.csv']
+        for name, d in zip(csv_files, [first_gain_dict, sec_gain_dict]):
+            csv_dicts = []
+            for k, v in d.iteritems():
+                csv_dicts.append({header[0]: k,
+                                  header[1]: v[0],
+                                  header[2]: v[1],
+                                  header[3]: v[2],
+                                  header[4]: v[3]
+                                  })
+            write_csv(os.path.normpath(working_dir+'/'+name), csv_dicts, header)
+
+    if sec_gain_file:
+        sec_gain_dict = read_csv(sec_gain_file,
+                                 'well',
+                                 ['green', 'blue', 'yellow', 'red'],
+                                 sec_gain_dict
+                                 )
 
     # Lists for storing command strings.
     com_list = []
@@ -509,26 +535,24 @@ def main(argv):
     prev_well = ''
 
     wells = defaultdict()
-    gains = defaultdict(list)
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
 
-    for c in ['green', 'blue', 'yellow', 'red']:
+    for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
         mlist = []
-        for d in sec_gain_dicts:
+        for k, v in sec_gain_dict.iteritems():
             # Sort gain data into a list dict with well as key and where the
             # value is a list with a gain value for each channel.
-            gains[d['well']].append(d[c])
             if c == 'green':
                 # Round gain values to multiples of 10 in green channel
-                d['green'] = int(round(int(d['green']), -1))
-                green_sorted[d['green']].append(d['well'])
-                well_no = 8*(int(get_wfx(d['well']))-1)+int(get_wfy(d['well']))
-                wells[well_no] = d['well']
+                green_val = int(round(int(v[i]), -1))
+                green_sorted[green_val].append(k)
+                well_no = 8*(int(get_wfx(k))-1)+int(get_wfy(k))
+                wells[well_no] = k
             else:
                 # Find the median value of all gains in
                 # blue, yellow and red channels.
-                mlist.append(int(d[c]))
+                mlist.append(int(v[i]))
                 medians[c] = int(np.median(mlist))
     wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
 
@@ -588,7 +612,7 @@ def main(argv):
                 set_gain = str(c)
                 start_of_part = True
             if stage4:
-                set_gain = str(gains[v][i])
+                set_gain = str(sec_gain_dict[v][i])
             if i < 2:
                 detector = '1'
                 job = job_list[i + 3*pattern]
@@ -599,7 +623,6 @@ def main(argv):
         for well in v:
             if stage4:
                 well = v
-            #print(well)
             if well != prev_well:
                 prev_well = well
                 for i in range(2):
@@ -640,10 +663,6 @@ def main(argv):
         end_com_list.append(end_com)
 
     for com, end_com in zip(com_list, end_com_list):
-        # Stop scan
-        #print(stop_com)
-        #sock.send(stop_com)
-        #time.sleep(5)
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
         print(com)
@@ -668,21 +687,28 @@ def main(argv):
             # Get all image paths in field. Rename images.
             # Make a max proj per channel and field.
             # Save meta data and image max proj.
-            if 'E03' in reply:
+            if 'image' in reply:
                 img_name = File(reply).get_name('image--.*.tif')
+                print(img_name)
+                job_order = File(reply).get_name('E\d\d')
                 img_paths = img_dir.get_all_files(img_name)
                 try:
                     field_path = File(img_paths[0]).get_dir()
-                    get_imgs(field_path, imaging_dir, csv_save=False)
+                    get_imgs(field_path, imaging_dir, job_order, csv_save=False)
                 except IndexError as e:
                     print('No images yet... but maybe later?' , e)
             if all(test in reply for test in end_com):
                 stage5 = False
         #time.sleep(3)
         # Stop scan
+        print(stop_cam_com)
+        sock.send(stop_cam_com)
+        time.sleep(3)
         print(stop_com)
         sock.send(stop_com)
         time.sleep(5)
+
+    print('\nExperiment finished!')
 
 if __name__ =='__main__':
     main(sys.argv[1:])
