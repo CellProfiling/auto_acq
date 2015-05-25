@@ -6,8 +6,6 @@ import re
 import time
 import csv
 import numpy as np
-from scipy.misc import imread
-from tifffile import imsave
 from scipy.ndimage.measurements import histogram
 from collections import OrderedDict
 from collections import defaultdict
@@ -91,22 +89,23 @@ def process_output(well, output, dict_list):
         dict_list[well].append(c)
     return dict_list
 
-def read_csv(path, index, keys, dict):
-    """Read a csv file and return a dictionary of lists."""
+def read_csv(path, index, header):
+    """Read a csv file and return a defaultdict of lists."""
+    dict = defaultdict(list)
     with open(path) as f:
         reader = csv.DictReader(f)
         for d in reader:
-            for key in keys:
+            for key in header:
                 dict[d[index]].append(d[key])
     return dict
 
-def write_csv(path, list_dicts, keys):
-    """Function to write a list of dicts as a csv file."""
-
+def write_csv(path, dict, header):
+    """Function to write a deafaultdict of lists as a csv file."""
     with open(path, 'wb') as f:
-        w = csv.DictWriter(f, keys)
-        w.writeheader()
-        w.writerows(list_dicts)
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for key, value in dict.iteritems():
+            writer.writerow([key] + value)
 
 def make_proj(img_list):
     """Function to make a dict of max projections from a list of paths
@@ -114,17 +113,13 @@ def make_proj(img_list):
     channels = []
     try:
         ptime = time.time()
-        for path in img_list:
-            channel = File(path).get_name('C\d\d')
-            channels.append(channel)
-            channels = sorted(set(channels))
+        sorted_images = defaultdict(list)
         max_imgs = {}
-        for channel in channels:
-            images = []
-            for path in img_list:
-                if channel == File(path).get_name('C\d\d'):
-                    images.append(imread(path))
-            max_imgs[channel] = np.maximum.reduce(images)
+        for path in img_list:
+            img = File(path)
+            channel = img.get_name('C\d\d')
+            sorted_images[channel].append(img.read_image())
+            max_imgs[channel] = np.maximum.reduce(sorted_images[channel])
         print('Max proj:'+str(time.time()-ptime)+' secs')
         return max_imgs
     except IndexError as e:
@@ -140,7 +135,7 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
     metadata_d = {}
     for img_path in img_paths:
         img = File(img_path)
-        image = imread(img_path)
+        img_array = img.read_image()
         well = img.get_name('U\d\d--V\d\d')
         job_order = img.get_name('E\d\d')
         field = img.get_name('X\d\d--Y\d\d')
@@ -160,7 +155,7 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
             channel = 'C03'
         else:
             new_name = img_path
-        if len(image) == 512 or len(image) == 2048:
+        if len(img_array) == 512 or len(img_array) == 2048:
             new_paths.append(new_name)
             metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
         os.rename(img_path, new_name)
@@ -173,16 +168,16 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
         if img_save:
             p = new_dir+'image--'+well+'--'+field+'--'+channel+'.tif'
             metadata = metadata_d[well+'--'+field+'--'+channel]
-            imsave(p, proj, description=metadata)
+            File(p).save_image(proj, metadata)
         if csv_save:
             if proj.dtype.name == 'uint8':
                 max_int = 255
             if proj.dtype.name == 'uint16':
                 max_int = 65535
             histo = histogram(proj, 0, max_int, 256)
-            rows = []
+            rows = deafaultdict(list)
             for b, count in enumerate(histo):
-                rows.append({'bin': b, 'count': count})
+                rows[b].append(count)
             p = new_dir+well+'--'+channel+'.ome.csv'
             write_csv(os.path.normpath(p), rows, ['bin', 'count'])
         print('Save image:'+str(time.time()-ptime)+' secs')
@@ -291,8 +286,7 @@ def main(argv):
         stage2_63x_before = True
         stage3 = False
         stage4 = True
-        coords = defaultdict(list)
-        coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'], coords)
+        coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'])
 
     # 10x gain job cam command in all selected wells
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
@@ -504,21 +498,11 @@ def main(argv):
         header = ['well', 'green', 'blue', 'yellow', 'red']
         csv_files = ['first_output_gains.csv', 'sec_output_gains.csv']
         for name, d in zip(csv_files, [first_gain_dict, sec_gain_dict]):
-            csv_dicts = []
-            for k, v in d.iteritems():
-                csv_dicts.append({header[0]: k,
-                                  header[1]: v[0],
-                                  header[2]: v[1],
-                                  header[3]: v[2],
-                                  header[4]: v[3]
-                                  })
-            write_csv(os.path.normpath(working_dir+'/'+name), csv_dicts, header)
-
-    if sec_gain_file:
+            write_csv(os.path.normpath(working_dir+'/'+name), d, header)
+    else:
         sec_gain_dict = read_csv(sec_gain_file,
                                  'well',
-                                 ['green', 'blue', 'yellow', 'red'],
-                                 sec_gain_dict
+                                 ['green', 'blue', 'yellow', 'red']
                                  )
 
     # Lists for storing command strings.

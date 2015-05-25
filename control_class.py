@@ -1,11 +1,9 @@
 import os
+import abc
 import fnmatch
 import re
 import tifffile
-from PIL import Image
-from lxml import etree
-from unicodedata import normalize
-import abc
+
 class Base(object):
     """Base class
 
@@ -80,16 +78,7 @@ class Directory(Base):
 
 class File(Base):
     """A file.
-    If the file is an image, use PIL Image class to open the image.
-    Search xml data using lxml.
     """
-
-    namespace = {'ns':'http://www.openmicroscopy.org/Schemas/OME/2008-09'}
-
-    #def meta_data(self):
-    #    """Open an image and find the meta data and return it as ascii."""
-    #    im = Image.open(self.path)
-    #    return normalize('NFKD', im.tag[270]).encode('ascii','ignore')
 
     def read_image(self):
         with tifffile.TiffFile(self.path) as tif:
@@ -99,16 +88,8 @@ class File(Base):
         with tifffile.TiffFile(self.path) as tif:
             return tif[0].image_description
 
-    #def save_image(self, path, data, metadata):
-    #    tifffile.imsave(path, data, description=metadata)
-
-    def serial_no(self):
-        """Open an image and find the serial number of the objective that
-        acquired the image."""
-        asci = self.meta_data()
-        root = etree.fromstring(asci)
-        return root.xpath('//ns:Objective/@SerialNumber',
-                                   namespaces=self.namespace)[0]
+    def save_image(self, data, metadata):
+        tifffile.imsave(self.path, data, description=metadata)
 
     def get_name(self, regex):
         """Return the part of the name of the file, matching regex."""
