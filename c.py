@@ -24,12 +24,13 @@ def usage():
     -i <dir>, --input=<dir>     : set imaging directory
     --wdir=<dir>                : set working directory
     --std=<well>                : set standard well
-    --firstgain=<gain_file>     : set first initial gains file
-    --secondgain=<gain_file>    : set second initial gains file
+    --firstgain=<file>          : set first initial gains file
+    --secondgain=<file>         : set second initial gains file
     --finwell=<well>            : set final well
     --finfield=<field>          : set final field
     --coords=<file>             : set 63x coordinates file
-    --host=<ip>                 : set host ip address""")
+    --host=<ip>                 : set host ip address
+    --inputgain=<file>          : set second calculated gains file""")
 
 def camstart_com(_afjob, _afr, _afs):
     """Returns a cam command to start the cam scan with selected AF job
