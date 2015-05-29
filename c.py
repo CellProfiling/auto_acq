@@ -32,12 +32,25 @@ def usage():
     --host=<ip>                 : set host ip address
     --inputgain=<file>          : set second calculated gains file""")
 
-def camstart_com(_afjob, _afr, _afs):
+def camstart_com(_afjob=None, _afr=None, _afs=None):
     """Returns a cam command to start the cam scan with selected AF job
     and AF settings."""
 
+    if _afjob is None:
+        afj = ''
+    else:
+        afj = ' /afj:'+_afjob
+    if _afr is None:
+        afr = ''
+    else:
+        afr = ' /afr:'+_afr
+    if _afs is None:
+        afs = ''
+    else:
+        afs = ' /afs:'+_afs
+
     _com = ('/cli:1 /app:matrix /cmd:startcamscan /runtime:36000'
-            ' /repeattime:36000 /afj:'+_afjob+' /afr:'+_afr+' /afs:'+_afs)
+            ' /repeattime:36000'+afj+afr+afs)
     return _com
 
 def gain_com(_job, _pmt, _gain):
@@ -263,12 +276,17 @@ def main(argv):
     g_job_10x = 'gain10x'
     g_job_40x = 'gain40x'
     g_job_63x = 'gain63x'
+    pattern_g_10x = 'pattern7'
+    pattern_g_40x = 'pattern8'
+    pattern_g_63x = 'pattern9'
     job_40x = ['job7', 'job8', 'job9']
     pattern_40x = ['pattern2']
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
                'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
-    job_dummy = 'job22'
+    job_dummy_10x = 'dummy10x'
+    pattern_dummy_10x = 'pdummy10x'
+    pattern_dummy_40x = 'pdummy40x'
 
     # Booleans to control flow.
     stage0 = True
@@ -282,6 +300,7 @@ def main(argv):
     stage4 = False
     stage5 = False
     if coord_file:
+        stage1 = False
         stage1after = True
         stage2_40x_before = False
         stage2_63x_before = True
@@ -293,27 +312,26 @@ def main(argv):
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
     for u in range(int(get_wfx(last_well))):
         for v in range(int(get_wfy(last_well))):
-            for i in range(2):
-                stage1_com = (stage1_com +
-                              cam_com(g_job_10x,
-                                      'U0'+str(u)+'--V0'+str(v),
-                                      'X0'+str(i)+'--Y0'+str(i),
-                                      '0',
-                                      '0'
-                                      )+
-                              '\n')
+            stage1_com = (stage1_com +
+                          cam_com(pattern_g_10x,
+                                  'U0'+str(u)+'--V0'+str(v),
+                                  'X0'+str(1)+'--Y0'+str(1),
+                                  '0',
+                                  '0'
+                                  )+
+                          '\n')
 
     # 40x gain job cam command in standard well
     stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
-                  cam_com(g_job_40x, std_well, 'X00--Y00', '0', '0')+
+                  cam_com(pattern_g_40x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
-                  cam_com(g_job_40x, std_well, 'X01--Y01', '0', '0'))
+                  cam_com(pattern_g_40x, std_well, 'X01--Y01', '0', '0'))
 
     # 63x gain job cam command in standard well
     stage2_63x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
-                  cam_com(g_job_63x, std_well, 'X00--Y00', '0', '0')+
+                  cam_com(pattern_g_63x, std_well, 'X00--Y00', '0', '0')+
                   '\n'+
-                  cam_com(g_job_63x, std_well, 'X01--Y01', '0', '0'))
+                  cam_com(pattern_g_63x, std_well, 'X01--Y01', '0', '0'))
 
     start_com = '/cli:1 /app:matrix /cmd:startscan\n'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan\n'
@@ -356,29 +374,29 @@ def main(argv):
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
             break
+        # Start scan.
+        print(start_com)
+        sock.send(start_com)
+        time.sleep(3)
         print('Waiting for images...')
         try:
-            #if stage1:
-            #    print('Stage1')
-            #    # Add 10x gain scan for wells to CAM list.
-            #    sock.send(stage1_com)
-            #    # Start scan.
-            #    print(start_com)
-            #    sock.send(start_com)
-            #    time.sleep(3)
-            #    cstart = camstart_com(af_job_10x, afr_10x, afs_10x)
-            #    # Start CAM scan.
-            #    print(cstart)
-            #    # Start CAM scan.
-            #    sock.send(cstart)
-            #    stage1 = False
+            if stage1:
+                print('Stage1')
+                # Add 10x gain scan for wells to CAM list.
+                sock.send(stage1_com)
+                cstart = camstart_com()
+                # Start CAM scan.
+                print(cstart)
+                # Start CAM scan.
+                sock.send(cstart)
+                stage1 = False
             reply = sock.recv_timeout(40, ['image--'])
             # Parse reply, check well (UV), field (XY).
             # Get well path.
             # Get all image paths in well.
             # Make a max proj per channel and well.
             # Save meta data and image max proj.
-            if 'E00' in reply:
+            if 'image' in reply:
                 img_name = File(reply).get_name('image--.*.tif')
                 img_paths = img_dir.get_all_files(img_name)
                 img = File(img_paths[0])
@@ -393,21 +411,22 @@ def main(argv):
                     if stage2_40x_before:
                         # Add 40x gain scan in std well to CAM list.
                         sock.send(stage2_40x)
-                        cstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+                        cstart = camstart_com()
                     if stage2_63x_before:
                         # Add 63x gain scan in std well to CAM list.
                         sock.send(stage2_63x)
-                        cstart = camstart_com(af_job_63x, afr_63x, afs_63x)
+                        cstart = camstart_com()
                     # Start CAM scan.
                     sock.send(cstart)
                     stage2before = False
                 if field_name == last_field and channel == 'C31':
-                    if 'CAM' in well_path:
+                    if ('CAM2' in well_path or
+                        (coord_file and 'CAM' in well_path)):
                         stage2after = True
                         if well_name == std_well:
                             sec_std_path = well_path
                     if ((well_name == last_well) and
-                        ('CAM' not in well_path)):
+                        ('CAM2' not in well_path)):
                         stage1after = True
                     if stage1after and stage2after:
                         stage0 = False
@@ -415,6 +434,8 @@ def main(argv):
                         sock.send(stop_com)
                         time.sleep(5)
                     if coord_file and 'CAM' not in well_path:
+                        make_projs = False
+                    elif not coord_file and 'CAM' not in well_path:
                         make_projs = False
                     else:
                         make_projs = True
@@ -543,7 +564,7 @@ def main(argv):
 
     if stage3:
         print('Stage3')
-        cstart = camstart_com(af_job_40x, afr_40x, afs_40x)
+        cstart = camstart_com()
         stage_dict = green_sorted
         job_list = job_40x
         pattern = 0
@@ -552,7 +573,7 @@ def main(argv):
         fov_is = True
     if stage4:
         print('Stage4')
-        cstart = camstart_com(af_job_63x, afr_63x, afs_63x)
+        cstart = camstart_com()
         channels = range(4)
         stage_dict = wells
         old_well_no = wells.items()[0][0]-1
