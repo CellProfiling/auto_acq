@@ -91,7 +91,7 @@ def cam_com(_job, _well, _field, _dx, _dy):
     _fieldx = get_wfx(_field)
     _fieldy = get_wfy(_field)
     _com = ('/cli:1 /app:matrix /cmd:add /tar:camlist /exp:'+_job+
-            ' /ext:af /slide:0 /wellx:'+_wellx+' /welly:'+_welly+
+            ' /ext:none /slide:0 /wellx:'+_wellx+' /welly:'+_welly+
             ' /fieldx:'+_fieldx+' /fieldy:'+_fieldy+' /dxpos:'+_dx+
             ' /dypos:'+_dy
             )
@@ -114,7 +114,7 @@ def read_csv(path, index, header):
     return dict
 
 def write_csv(path, dict, header):
-    """Function to write a deafaultdict of lists as a csv file."""
+    """Function to write a defaultdict of lists as a csv file."""
     with open(path, 'wb') as f:
         writer = csv.writer(f)
         writer.writerow(header)
@@ -189,7 +189,7 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
             if proj.dtype.name == 'uint16':
                 max_int = 65535
             histo = histogram(proj, 0, max_int, 256)
-            rows = deafaultdict(list)
+            rows = defaultdict(list)
             for b, count in enumerate(histo):
                 rows[b].append(count)
             p = new_dir+well+'--'+channel+'.ome.csv'
@@ -296,7 +296,7 @@ def main(argv):
     stage2_40x_before = True
     stage2_63x_before = False
     stage2after = False
-    stage3 = True
+    stage3 = False
     stage4 = False
     stage5 = False
     if coord_file:
@@ -320,6 +320,7 @@ def main(argv):
                                   '0'
                                   )+
                           '\n')
+    #stage1_com = stage1_com + '/cli:1 /app:matrix /cmd:pausescan\n'
 
     # 40x gain job cam command in standard well
     stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
@@ -368,16 +369,17 @@ def main(argv):
     if sec_gain_file:
         stage0 = False
 
+    # Start scan.
+    print(start_com)
+    sock.send(start_com)
+    #time.sleep(5)
+
     while stage0:
         print('stage0')
         print('Time: '+str(time.time()-begin)+' secs')
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
             break
-        # Start scan.
-        print(start_com)
-        sock.send(start_com)
-        time.sleep(3)
         print('Waiting for images...')
         try:
             if stage1:
@@ -443,7 +445,7 @@ def main(argv):
                     if make_projs:
                         print('Making max projections and '
                               'calculating histograms')
-                        get_imgs(well_path, well_path, 'E00', img_save=False)
+                        get_imgs(well_path, well_path, 'E02', img_save=False)
                         print(str(time.time()-ptime)+' secs')
                         begin = time.time()
             # get all CSVs and wells
@@ -460,13 +462,14 @@ def main(argv):
                 well_name = csv_file.get_name('U\d\d--V\d\d')
                 parent_path = csv_file.get_dir()
                 well_path = Directory(parent_path).get_dir()
-                if 'CAM' not in csv_path:
+                if ('CAM2' in well_path or
+                    (coord_file and 'CAM' in well_path)):
+                    sec_std_fbs.append(fbase)
+                else:
                     filebases.append(fbase)
                     fin_wells.append(well_name)
                     if std_well == well_name:
                         first_std_fbs.append(fbase)
-                elif well_path == sec_std_path:
-                    sec_std_fbs.append(fbase)
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
 
@@ -538,7 +541,10 @@ def main(argv):
     dy = 0
     pattern = -1
     start_of_part = False
+    fov_is = True
     prev_well = ''
+    set_gain = ''
+    stage_dict = deafaultdict()
 
     wells = defaultdict()
     green_sorted = defaultdict(list)
@@ -668,51 +674,56 @@ def main(argv):
         com_list.append(com)
         end_com_list.append(end_com)
 
-    for com, end_com in zip(com_list, end_com_list):
-        # Send gain change command to server in the four channels.
-        # Send CAM list to server.
-        print(com)
-        sock.send(com)
-        time.sleep(3)
-        # Start scan.
-        print(start_com)
-        sock.send(start_com)
-        time.sleep(3)
-        # Start CAM scan.
-        print(cstart)
-        sock.send(cstart)
-        time.sleep(3)
-        if stage3:
-            sock.recv_timeout(40, end_com)
-        if stage4:
-            stage5 = True
-        while stage5:
-            reply = sock.recv_timeout(120, ['image--'])
-            # parse reply, check well (UV), job-order (E), field (XY),
-            # z slice (Z) and channel (C). Get field path.
-            # Get all image paths in field. Rename images.
-            # Make a max proj per channel and field.
-            # Save meta data and image max proj.
-            if 'image' in reply:
-                img_name = File(reply).get_name('image--.*.tif')
-                print(img_name)
-                job_order = File(reply).get_name('E\d\d')
-                img_paths = img_dir.get_all_files(img_name)
-                try:
-                    field_path = File(img_paths[0]).get_dir()
-                    get_imgs(field_path, imaging_dir, job_order, csv_save=False)
-                except IndexError as e:
-                    print('No images yet... but maybe later?' , e)
-            if all(test in reply for test in end_com):
-                stage5 = False
-        #time.sleep(3)
-        # Stop scan
-        print(stop_cam_com)
-        sock.send(stop_cam_com)
-        time.sleep(3)
-        print(stop_com)
-        sock.send(stop_com)
-        time.sleep(5)
+    if stage3 or stage4:
+        for com, end_com in zip(com_list, end_com_list):
+            # Send gain change command to server in the four channels.
+            # Send CAM list to server.
+            print(com)
+            sock.send(com)
+            time.sleep(3)
+            # Start scan.
+            print(start_com)
+            sock.send(start_com)
+            time.sleep(3)
+            # Start CAM scan.
+            print(cstart)
+            sock.send(cstart)
+            time.sleep(3)
+            if stage3:
+                sock.recv_timeout(40, end_com)
+            if stage4:
+                stage5 = True
+            while stage5:
+                reply = sock.recv_timeout(120, ['image--'])
+                # parse reply, check well (UV), job-order (E), field (XY),
+                # z slice (Z) and channel (C). Get field path.
+                # Get all image paths in field. Rename images.
+                # Make a max proj per channel and field.
+                # Save meta data and image max proj.
+                if 'image' in reply:
+                    img_name = File(reply).get_name('image--.*.tif')
+                    print(img_name)
+                    job_order = File(reply).get_name('E\d\d')
+                    img_paths = img_dir.get_all_files(img_name)
+                    try:
+                        field_path = File(img_paths[0]).get_dir()
+                        get_imgs(field_path,
+                                 imaging_dir,
+                                 job_order,
+                                 csv_save=False
+                                 )
+                    except IndexError as e:
+                        print('No images yet... but maybe later?' , e)
+                if all(test in reply for test in end_com):
+                    stage5 = False
+            #time.sleep(3)
+            # Stop scan
+            print(stop_cam_com)
+            sock.send(stop_cam_com)
+            time.sleep(3)
+            print(stop_com)
+            sock.send(stop_com)
+            time.sleep(5)
 
     print('\nExperiment finished!')
 
