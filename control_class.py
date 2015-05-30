@@ -2,6 +2,7 @@ import os
 import abc
 import fnmatch
 import re
+from scipy.misc import imread
 import tifffile
 
 class Base(object):
@@ -80,9 +81,11 @@ class File(Base):
     """A file.
     """
 
+    #def read_image(self):
+    #    with tifffile.TiffFile(self.path) as tif:
+    #        return tif.asarray()
     def read_image(self):
-        with tifffile.TiffFile(self.path) as tif:
-            return tif.asarray()
+        return imread(self.path)
 
     def meta_data(self):
         with tifffile.TiffFile(self.path) as tif:
