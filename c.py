@@ -155,16 +155,16 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
         field = img.get_name('X\d\d--Y\d\d')
         z_slice = img.get_name('Z\d\d')
         channel = img.get_name('C\d\d')
-        if job_order == 'E01':
-            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C00.ome.tif'
-            channel = 'C00'
-        elif job_order == 'E02' and channel == 'C00':
+        if job_order == 'E02':
+            new_name = (path+'/'+well+'--'+field+'--'+z_slice+'--'+channel+
+                        '.ome.tif')
+        elif job_order == 'E03' and channel == 'C00':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C01.ome.tif'
             channel = 'C01'
-        elif job_order == 'E02' and channel == 'C01':
+        elif job_order == 'E03' and channel == 'C01':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
             channel = 'C02'
-        elif job_order == 'E03':
+        elif job_order == 'E04':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
             channel = 'C03'
         else:
@@ -353,6 +353,9 @@ def main(argv):
     # start time
     begin = time.time()
 
+    # Timestamp part of path of current experiment folder
+    exp_time = ''
+
     # Path to standard well from second objective.
     sec_std_path = ''
 
@@ -402,6 +405,8 @@ def main(argv):
                 img_name = File(reply).get_name('image--.*.tif')
                 img_paths = img_dir.get_all_files(img_name)
                 img = File(img_paths[0])
+                exp_time = img.get_name('experiment--\d\d\d\d_\d\d_\d\d'+
+                                        '_\d\d_\d\d_\d\d')
                 well_name = img.get_name('U\d\d--V\d\d')
                 field_name = img.get_name('X\d\d--Y\d\d')
                 channel = img.get_name('C\d\d')
@@ -463,8 +468,10 @@ def main(argv):
                 parent_path = csv_file.get_dir()
                 well_path = Directory(parent_path).get_dir()
                 if ('CAM2' in well_path or
-                    (coord_file and 'CAM' in well_path)):
-                    sec_std_fbs.append(fbase)
+                    (coord_file and 'CAM1' in well_path and
+                     exp_time in well_path)):
+                    if std_well == well_name:
+                        sec_std_fbs.append(fbase)
                 else:
                     filebases.append(fbase)
                     fin_wells.append(well_name)
