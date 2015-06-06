@@ -197,6 +197,29 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
         print('Save image:'+str(time.time()-ptime)+' secs')
     return
 
+def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells):
+    search = Directory(path)
+    csvs = sorted(search.get_all_files('*.ome.csv'))
+    for csv_path in csvs:
+        csv_file = File(csv_path)
+        # Get the filebase from the csv path.
+        fbase = csv_file.cut_path('C\d\d.+$')
+        #  Get the well from the csv path.
+        well_name = csv_file.get_name('U\d\d--V\d\d')
+        parent_path = csv_file.get_dir()
+        well_path = Directory(parent_path).get_dir()
+        if ('CAM2' in well_path or
+            (coord_file and 'CAM1' in well_path and
+             exp_t in well_path)):
+            if std_w == well_name:
+                sec_fbs.append(fbase)
+        else:
+            fbs.append(fbase)
+            wells.append(well_name)
+            if std_w == well_name:
+                first_fbs.append(fbase)
+    return {'wells':wells, 'bases':fbs, 'first':first_fbs, 'sec':sec_fbs}
+
 def main(argv):
     """Main function"""
 
@@ -475,28 +498,21 @@ def main(argv):
                         begin = time.time()
             # get all CSVs and wells
             if coord_file:
-                search = img_dir
+                search_dir = imaging_dir
             else:
-                search = Directory(well_path)
-            csvs = sorted(search.get_all_files('*.ome.csv'))
-            for csv_path in csvs:
-                csv_file = File(csv_path)
-                # Get the filebase from the csv path.
-                fbase = csv_file.cut_path('C\d\d.+$')
-                #  Get the well from the csv path.
-                well_name = csv_file.get_name('U\d\d--V\d\d')
-                parent_path = csv_file.get_dir()
-                well_path = Directory(parent_path).get_dir()
-                if ('CAM2' in well_path or
-                    (coord_file and 'CAM1' in well_path and
-                     exp_time in well_path)):
-                    if std_well == well_name:
-                        sec_std_fbs.append(fbase)
-                else:
-                    filebases.append(fbase)
-                    fin_wells.append(well_name)
-                    if std_well == well_name:
-                        first_std_fbs.append(fbase)
+                search_dir = well_path
+            csv_result = get_csvs(search_dir,
+                                  exp_time,
+                                  std_well,
+                                  filebases,
+                                  first_std_fbs,
+                                  sec_std_fbs,
+                                  fin_wells
+                                  )
+            filebases = csv_result['bases']
+            first_std_fbs = csv_result['first']
+            sec_std_fbs = csv_result['sec']
+            fin_wells = csv_result['wells']
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
 
