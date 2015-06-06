@@ -211,7 +211,8 @@ def main(argv):
                                                  'finfield=',
                                                  'coords=',
                                                  'host=',
-                                                 'inputgain='
+                                                 'inputgain=',
+                                                 'template='
                                                  ])
     except getopt.GetoptError as e:
         print e
@@ -229,6 +230,7 @@ def main(argv):
     sec_initialgains_file = os.path.normpath(working_dir+'/40x_gain.csv')
     last_well = 'U00--V00'
     last_field = 'X01--Y01'
+    template_file = None
     coord_file = None
     sec_gain_file = None
     host = ''
@@ -256,6 +258,8 @@ def main(argv):
             host = arg
         elif opt in ('--inputgain'):
             sec_gain_file = arg
+        elif opt in ('--template'):
+            template_file = arg
         else:
             assert False, 'Unhandled option!'
 
@@ -288,6 +292,8 @@ def main(argv):
     pattern_dummy_10x = 'pdummy10x'
     pattern_dummy_40x = 'pdummy40x'
 
+    stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
+
     # Booleans to control flow.
     stage0 = True
     stage1 = True
@@ -299,6 +305,19 @@ def main(argv):
     stage3 = False
     stage4 = False
     stage5 = False
+    if template_file:
+        template = read_csv(template_file, 'gain_from_well', ['well'])
+        # 10x gain job cam command in selected wells from template file
+        for well in template.keys():
+            for i in range(2):
+                stage1_com = (stage1_com +
+                              cam_com(pattern_g_10x,
+                                      'U0'+get_wfx(well)+'--V0'+get_wfy(well),
+                                      'X0'+str(i)+'--Y0'+str(i),
+                                      '0',
+                                      '0'
+                                      )+
+                              '\n')
     if coord_file:
         stage1 = False
         stage1after = True
@@ -308,18 +327,19 @@ def main(argv):
         stage4 = True
         coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'])
 
-    # 10x gain job cam command in all selected wells
-    stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
-    for u in range(int(get_wfx(last_well))):
-        for v in range(int(get_wfy(last_well))):
-            stage1_com = (stage1_com +
-                          cam_com(pattern_g_10x,
-                                  'U0'+str(u)+'--V0'+str(v),
-                                  'X0'+str(1)+'--Y0'+str(1),
-                                  '0',
-                                  '0'
-                                  )+
-                          '\n')
+    if template_file == False:
+        # 10x gain job cam command in all selected wells
+        for u in range(int(get_wfx(last_well))):
+            for v in range(int(get_wfy(last_well))):
+                for i in range(2):
+                    stage1_com = (stage1_com +
+                                  cam_com(pattern_g_10x,
+                                          'U0'+str(u)+'--V0'+str(v),
+                                          'X0'+str(i)+'--Y0'+str(i),
+                                          '0',
+                                          '0'
+                                          )+
+                                  '\n')
     #stage1_com = stage1_com + '/cli:1 /app:matrix /cmd:pausescan\n'
 
     # 40x gain job cam command in standard well
@@ -352,6 +372,9 @@ def main(argv):
     timeout = 300
     # start time
     begin = time.time()
+
+    # Timestamp part of path of current experiment folder
+    exp_time = ''
 
     # Path to standard well from second objective.
     sec_std_path = ''
@@ -402,6 +425,8 @@ def main(argv):
                 img_name = File(reply).get_name('image--.*.tif')
                 img_paths = img_dir.get_all_files(img_name)
                 img = File(img_paths[0])
+                exp_time = img.get_name('experiment--\d\d\d\d_\d\d_\d\d'+
+                                        '_\d\d_\d\d_\d\d')
                 well_name = img.get_name('U\d\d--V\d\d')
                 field_name = img.get_name('X\d\d--Y\d\d')
                 channel = img.get_name('C\d\d')
@@ -463,8 +488,10 @@ def main(argv):
                 parent_path = csv_file.get_dir()
                 well_path = Directory(parent_path).get_dir()
                 if ('CAM2' in well_path or
-                    (coord_file and 'CAM' in well_path)):
-                    sec_std_fbs.append(fbase)
+                    (coord_file and 'CAM1' in well_path and
+                     exp_time in well_path)):
+                    if std_well == well_name:
+                        sec_std_fbs.append(fbase)
                 else:
                     filebases.append(fbase)
                     fin_wells.append(well_name)
@@ -558,7 +585,11 @@ def main(argv):
             if c == 'green':
                 # Round gain values to multiples of 10 in green channel
                 green_val = int(round(int(v[i]), -1))
-                green_sorted[green_val].append(k)
+                if template_file:
+                    for well in template[k]:
+                        green_sorted[green_val].append(well)
+                else:
+                    green_sorted[green_val].append(k)
                 well_no = 8*(int(get_wfx(k))-1)+int(get_wfy(k))
                 wells[well_no] = k
             else:
