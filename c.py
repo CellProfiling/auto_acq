@@ -155,16 +155,16 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
         field = img.get_name('X\d\d--Y\d\d')
         z_slice = img.get_name('Z\d\d')
         channel = img.get_name('C\d\d')
-        if job_order == 'E01':
-            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C00.ome.tif'
-            channel = 'C00'
-        elif job_order == 'E02' and channel == 'C00':
+        if job_order == 'E02':
+            new_name = (path+'/'+well+'--'+field+'--'+z_slice+'--'+channel+
+                        '.ome.tif')
+        elif job_order == 'E03' and channel == 'C00':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C01.ome.tif'
             channel = 'C01'
-        elif job_order == 'E02' and channel == 'C01':
+        elif job_order == 'E03' and channel == 'C01':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
             channel = 'C02'
-        elif job_order == 'E03':
+        elif job_order == 'E04':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
             channel = 'C03'
         else:
