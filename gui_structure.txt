@@ -1,0 +1,32 @@
+- start function
+- search for file
+- open csv
+- write csv
+- end function
+- create interface
+    * interface
+        * buttons
+            * next
+                - next
+            * prev
+                - prev
+            * save
+                - save
+            * quit
+                - quit
+            * channels
+                * green
+                * blue
+                * yellow
+                * red
+                - change channel
+        * image
+            * channel combination images
+            - show image
+        * info boxes
+            * total fovs saved
+            * total wells saved
+            * fovs in current well saved
+            - show info
+        * message box
+            - show message
