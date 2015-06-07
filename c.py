@@ -173,10 +173,15 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
             new_paths.append(new_name)
             metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
         os.rename(img_path, new_name)
+    print('Making max projections')
     max_projs = make_proj(new_paths)
     new_dir = imdir+'/maxprojs/'
     if not os.path.exists(new_dir):
         os.makedirs(new_dir)
+    if img_save:
+        print('Saving images')
+    if csv_save:
+        print('Calculating histograms')
     for channel, proj in max_projs.iteritems():
         ptime = time.time()
         if img_save:
@@ -325,7 +330,7 @@ def main(argv):
     stage2_40x_before = True
     stage2_63x_before = False
     stage2after = False
-    stage3 = False
+    stage3 = True
     stage4 = False
     stage5 = False
     if template_file:
@@ -491,8 +496,6 @@ def main(argv):
                         make_projs = True
                     ptime = time.time()
                     if make_projs:
-                        print('Making max projections and '
-                              'calculating histograms')
                         get_imgs(well_path, well_path, 'E02', img_save=False)
                         print(str(time.time()-ptime)+' secs')
                         begin = time.time()
@@ -604,10 +607,12 @@ def main(argv):
                 if template_file:
                     for well in template[k]:
                         green_sorted[green_val].append(well)
+                        well_no = 8*(int(get_wfx(well))-1)+int(get_wfy(well))
+                        wells[well_no] = well
                 else:
                     green_sorted[green_val].append(k)
-                well_no = 8*(int(get_wfx(k))-1)+int(get_wfy(k))
-                wells[well_no] = k
+                    well_no = 8*(int(get_wfx(k))-1)+int(get_wfy(k))
+                    wells[well_no] = k
             else:
                 # Find the median value of all gains in
                 # blue, yellow and red channels.
@@ -627,7 +632,7 @@ def main(argv):
     if stage4:
         print('Stage4')
         cstart = camstart_com()
-        channels = range(4)
+        #channels = range(4)
         stage_dict = wells
         old_well_no = wells.items()[0][0]-1
         job_list = job_63x
@@ -640,6 +645,11 @@ def main(argv):
                         medians['red']
                         ]
         if stage4:
+            channels = [sec_gain_dict[v][0],
+                        medians['blue'],
+                        medians['yellow'],
+                        medians['red']
+                        ]
             # Check if well no 1-4 or 5-8 etc and continuous.
             if round((float(k)+1)/4) % 2 == odd_even:
                 pattern = 0
@@ -667,11 +677,9 @@ def main(argv):
             com = '/cli:1 /app:matrix /cmd:deletelist\n'
             fov_is = False
         for i, c in enumerate(channels):
+            set_gain = str(c)
             if stage3:
-                set_gain = str(c)
                 start_of_part = True
-            if stage4:
-                set_gain = str(sec_gain_dict[v][i])
             if i < 2:
                 detector = '1'
                 job = job_list[i + 3*pattern]
