@@ -240,7 +240,11 @@ def main(argv):
                                                  'coords=',
                                                  'host=',
                                                  'inputgain=',
-                                                 'template='
+                                                 'template=',
+                                                 '10x',
+                                                 '40x',
+                                                 '63x',
+                                                 'pre63x'
                                                  ])
     except getopt.GetoptError as e:
         print e
@@ -262,6 +266,10 @@ def main(argv):
     coord_file = None
     sec_gain_file = None
     host = ''
+    end_10x = False
+    end_40x = True
+    end_63x = False
+    pre_63x = False
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -288,6 +296,14 @@ def main(argv):
             sec_gain_file = arg
         elif opt in ('--template'):
             template_file = arg
+        elif opt in ('--10x'):
+            end_10x = True
+        elif opt in ('--40x'):
+            end_40x = True
+        elif opt in ('--63x'):
+            end_63x = True
+        elif opt in ('--pre63x'):
+            pre_63x = True
         else:
             assert False, 'Unhandled option!'
 
@@ -311,6 +327,8 @@ def main(argv):
     pattern_g_10x = 'pattern7'
     pattern_g_40x = 'pattern8'
     pattern_g_63x = 'pattern9'
+    job_10x = ['job22', 'job23', 'job24']
+    pattern_10x = ['pattern10']
     job_40x = ['job7', 'job8', 'job9']
     pattern_40x = ['pattern2']
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
@@ -327,12 +345,29 @@ def main(argv):
     stage1 = True
     stage1after = False
     stage2before = True
-    stage2_40x_before = True
-    stage2_63x_before = False
     stage2after = False
     stage3 = True
     stage4 = False
     stage5 = False
+    if coord_file:
+        stage1 = False
+        stage1after = True
+        end_10x = False
+        end_40x = False
+        end_63x = True
+        stage3 = False
+        stage4 = True
+        coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'])
+    elif end_63x:
+        stage1 = False
+        stage1after = True
+        end_10x = False
+        end_40x = False
+        stage3 = False
+        stage4 = True
+    elif pre_63x:
+        stage3 = False
+        stage4 = False
     if template_file:
         template = read_csv(template_file, 'gain_from_well', ['well'])
         # 10x gain job cam command in selected wells from template file
@@ -346,16 +381,7 @@ def main(argv):
                                       '0'
                                       )+
                               '\n')
-    if coord_file:
-        stage1 = False
-        stage1after = True
-        stage2_40x_before = False
-        stage2_63x_before = True
-        stage3 = False
-        stage4 = True
-        coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'])
-
-    if template_file == False:
+    else:
         # 10x gain job cam command in all selected wells
         for u in range(int(get_wfx(last_well))):
             for v in range(int(get_wfy(last_well))):
@@ -368,7 +394,14 @@ def main(argv):
                                           '0'
                                           )+
                                   '\n')
+
     #stage1_com = stage1_com + '/cli:1 /app:matrix /cmd:pausescan\n'
+
+    # 10x gain job cam command in standard well
+    stage2_10x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
+                  cam_com(pattern_g_10x, std_well, 'X00--Y00', '0', '0')+
+                  '\n'+
+                  cam_com(pattern_g_10x, std_well, 'X01--Y01', '0', '0'))
 
     # 40x gain job cam command in standard well
     stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
@@ -444,78 +477,86 @@ def main(argv):
                 sock.send(cstart)
                 stage1 = False
             reply = sock.recv_timeout(40, ['image--'])
-            # Parse reply, check well (UV), field (XY).
-            # Get well path.
-            # Get all image paths in well.
-            # Make a max proj per channel and well.
-            # Save meta data and image max proj.
-            if 'image' in reply:
-                img_name = File(reply).get_name('image--.*.tif')
-                img_paths = img_dir.get_all_files(img_name)
-                img = File(img_paths[0])
-                exp_time = img.get_name('experiment--\d\d\d\d_\d\d_\d\d'+
-                                        '_\d\d_\d\d_\d\d')
-                well_name = img.get_name('U\d\d--V\d\d')
-                field_name = img.get_name('X\d\d--Y\d\d')
-                channel = img.get_name('C\d\d')
-                field_path = img.get_dir()
-                well_path = Directory(field_path).get_dir()
-                if (well_name == std_well and stage2before):
-                    print('Stage2')
-                    time.sleep(3)
-                    if stage2_40x_before:
-                        # Add 40x gain scan in std well to CAM list.
-                        sock.send(stage2_40x)
-                        cstart = camstart_com()
-                    if stage2_63x_before:
-                        # Add 63x gain scan in std well to CAM list.
-                        sock.send(stage2_63x)
-                        cstart = camstart_com()
-                    # Start CAM scan.
-                    sock.send(cstart)
-                    stage2before = False
-                if field_name == last_field and channel == 'C31':
-                    if ('CAM2' in well_path or
-                        (coord_file and 'CAM' in well_path)):
-                        stage2after = True
-                        if well_name == std_well:
-                            sec_std_path = well_path
-                    if ((well_name == last_well) and
-                        ('CAM2' not in well_path)):
-                        stage1after = True
-                    if stage1after and stage2after:
-                        stage0 = False
-                        print(stop_com)
-                        sock.send(stop_com)
-                        time.sleep(5)
-                    if coord_file and 'CAM' not in well_path:
-                        make_projs = False
-                    elif not coord_file and 'CAM' not in well_path:
-                        make_projs = False
-                    else:
-                        make_projs = True
-                    ptime = time.time()
-                    if make_projs:
-                        get_imgs(well_path, well_path, 'E02', img_save=False)
-                        print(str(time.time()-ptime)+' secs')
-                        begin = time.time()
-            # get all CSVs and wells
-            if coord_file:
-                search_dir = imaging_dir
-            else:
-                search_dir = well_path
-            csv_result = get_csvs(search_dir,
-                                  exp_time,
-                                  std_well,
-                                  filebases,
-                                  first_std_fbs,
-                                  sec_std_fbs,
-                                  fin_wells
-                                  )
-            filebases = csv_result['bases']
-            first_std_fbs = csv_result['first']
-            sec_std_fbs = csv_result['sec']
-            fin_wells = csv_result['wells']
+            for line in reply.splitlines():
+                # Parse reply, check well (UV), field (XY).
+                # Get well path.
+                # Get all image paths in well.
+                # Make a max proj per channel and well.
+                # Save meta data and image max proj.
+                if 'image' in line:
+                    img_name = File(line).get_name('image--.*.tif')
+                    img_paths = img_dir.get_all_files(img_name)
+                    img = File(img_paths[0])
+                    exp_time = img.get_name('experiment--\d\d\d\d_\d\d_\d\d'+
+                                            '_\d\d_\d\d_\d\d')
+                    well_name = img.get_name('U\d\d--V\d\d')
+                    field_name = img.get_name('X\d\d--Y\d\d')
+                    channel = img.get_name('C\d\d')
+                    field_path = img.get_dir()
+                    well_path = Directory(field_path).get_dir()
+                    if (well_name == std_well and stage2before):
+                        print('Stage2')
+                        time.sleep(3)
+                        if end_10x or pre_63x:
+                            # Add 10x gain scan in std well to CAM list.
+                            sock.send(stage2_10x)
+                            cstart = camstart_com()
+                        elif end_40x:
+                            # Add 40x gain scan in std well to CAM list.
+                            sock.send(stage2_40x)
+                            cstart = camstart_com()
+                        elif end_63x:
+                            # Add 63x gain scan in std well to CAM list.
+                            sock.send(stage2_63x)
+                            cstart = camstart_com()
+                        # Start CAM scan.
+                        sock.send(cstart)
+                        stage2before = False
+                    if field_name == last_field and channel == 'C31':
+                        if ('CAM2' in well_path or
+                            (coord_file and 'CAM' in well_path)):
+                            stage2after = True
+                            if well_name == std_well:
+                                sec_std_path = well_path
+                        if ((well_name == last_well) and
+                            ('CAM2' not in well_path)):
+                            stage1after = True
+                        if stage1after and stage2after:
+                            stage0 = False
+                            print(stop_com)
+                            sock.send(stop_com)
+                            time.sleep(5)
+                        if coord_file and 'CAM' not in well_path:
+                            make_projs = False
+                        elif not coord_file and 'CAM' not in well_path:
+                            make_projs = False
+                        else:
+                            make_projs = True
+                        ptime = time.time()
+                        if make_projs:
+                            get_imgs(well_path, well_path,
+                                     'E02',
+                                     img_save=False
+                                     )
+                            print(str(time.time()-ptime)+' secs')
+                            begin = time.time()
+                # get all CSVs and wells
+                if coord_file or end_63x:
+                    search_dir = imaging_dir
+                else:
+                    search_dir = well_path
+                csv_result = get_csvs(search_dir,
+                                      exp_time,
+                                      std_well,
+                                      filebases,
+                                      first_std_fbs,
+                                      sec_std_fbs,
+                                      fin_wells
+                                      )
+                filebases = csv_result['bases']
+                first_std_fbs = csv_result['first']
+                sec_std_fbs = csv_result['sec']
+                fin_wells = csv_result['wells']
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
 
@@ -624,9 +665,13 @@ def main(argv):
         print('Stage3')
         cstart = camstart_com()
         stage_dict = green_sorted
-        job_list = job_40x
         pattern = 0
-        pattern_list = pattern_40x
+        if end_10x:
+            job_list = job_10x
+            pattern_list = pattern_10x
+        elif end_40x:
+            job_list = job_40x
+            pattern_list = pattern_40x
         enable = 'true'
         fov_is = True
     if stage4:
@@ -697,10 +742,13 @@ def main(argv):
                         if stage4:
                             # Only enable selected wells from file (arg)
                             fov = '{}--X0{}--Y0{}'.format(well, j, i)
-                            if fov in coords.keys():
+                            if coord_file and fov in coords.keys():
                                 enable = 'true'
                                 dx = coords[fov][0]
                                 dy = coords[fov][1]
+                                fov_is = True
+                            elif end_63x:
+                                enable = 'true'
                                 fov_is = True
                             else:
                                 enable = 'false'
@@ -750,27 +798,28 @@ def main(argv):
                 stage5 = True
             while stage5:
                 reply = sock.recv_timeout(120, ['image--'])
-                # parse reply, check well (UV), job-order (E), field (XY),
-                # z slice (Z) and channel (C). Get field path.
-                # Get all image paths in field. Rename images.
-                # Make a max proj per channel and field.
-                # Save meta data and image max proj.
-                if 'image' in reply:
-                    img_name = File(reply).get_name('image--.*.tif')
-                    print(img_name)
-                    job_order = File(reply).get_name('E\d\d')
-                    img_paths = img_dir.get_all_files(img_name)
-                    try:
-                        field_path = File(img_paths[0]).get_dir()
-                        get_imgs(field_path,
-                                 imaging_dir,
-                                 job_order,
-                                 csv_save=False
-                                 )
-                    except IndexError as e:
-                        print('No images yet... but maybe later?' , e)
-                if all(test in reply for test in end_com):
-                    stage5 = False
+                for line in reply.splitlines():
+                    # parse reply, check well (UV), job-order (E), field (XY),
+                    # z slice (Z) and channel (C). Get field path.
+                    # Get all image paths in field. Rename images.
+                    # Make a max proj per channel and field.
+                    # Save meta data and image max proj.
+                    if 'image' in line:
+                        img_name = File(line).get_name('image--.*.tif')
+                        print(img_name)
+                        job_order = File(line).get_name('E\d\d')
+                        img_paths = img_dir.get_all_files(img_name)
+                        try:
+                            field_path = File(img_paths[0]).get_dir()
+                            get_imgs(field_path,
+                                     imaging_dir,
+                                     job_order,
+                                     csv_save=False
+                                     )
+                        except IndexError as e:
+                            print('No images yet... but maybe later?' , e)
+                    if all(test in line for test in end_com):
+                        stage5 = False
             #time.sleep(3)
             # Stop scan
             print(stop_cam_com)
