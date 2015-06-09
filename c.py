@@ -164,7 +164,7 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
         elif job_order == 'E03' and channel == 'C01':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
             channel = 'C02'
-        elif job_order == 'E04':
+        elif job_order == 'E04': # Not E05. E05 is the order of the UV dummy.
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
             channel = 'C03'
         else:
@@ -202,7 +202,7 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
         print('Save image:'+str(time.time()-ptime)+' secs')
     return
 
-def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells):
+def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file):
     search = Directory(path)
     csvs = sorted(search.get_all_files('*.ome.csv'))
     for csv_path in csvs:
@@ -328,9 +328,9 @@ def main(argv):
     pattern_g_40x = 'pattern8'
     pattern_g_63x = 'pattern9'
     job_10x = ['job22', 'job23', 'job24']
-    pattern_10x = ['pattern10']
+    pattern_10x = 'pattern10'
     job_40x = ['job7', 'job8', 'job9']
-    pattern_40x = ['pattern2']
+    pattern_40x = 'pattern2'
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
                'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
     pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
@@ -370,12 +370,14 @@ def main(argv):
         stage4 = False
     if template_file:
         template = read_csv(template_file, 'gain_from_well', ['well'])
+        last_well = sorted(template.keys())[-1]
         # 10x gain job cam command in selected wells from template file
-        for well in template.keys():
+        for well in sorted(template.keys()):
             for i in range(2):
                 stage1_com = (stage1_com +
                               cam_com(pattern_g_10x,
-                                      'U0'+get_wfx(well)+'--V0'+get_wfy(well),
+                                      'U0'+str(int(get_wfx(well))-1)+
+                                        '--V0'+str(int(get_wfy(well))-1),
                                       'X0'+str(i)+'--Y0'+str(i),
                                       '0',
                                       '0'
@@ -453,11 +455,6 @@ def main(argv):
     if sec_gain_file:
         stage0 = False
 
-    # Start scan.
-    print(start_com)
-    sock.send(start_com)
-    #time.sleep(5)
-
     while stage0:
         print('stage0')
         print('Time: '+str(time.time()-begin)+' secs')
@@ -470,6 +467,10 @@ def main(argv):
                 print('Stage1')
                 # Add 10x gain scan for wells to CAM list.
                 sock.send(stage1_com)
+                # Start scan.
+                print(start_com)
+                sock.send(start_com)
+                time.sleep(5)
                 cstart = camstart_com()
                 # Start CAM scan.
                 print(cstart)
@@ -487,8 +488,9 @@ def main(argv):
                     img_name = File(line).get_name('image--.*.tif')
                     img_paths = img_dir.get_all_files(img_name)
                     img = File(img_paths[0])
-                    exp_time = img.get_name('experiment--\d\d\d\d_\d\d_\d\d'+
-                                            '_\d\d_\d\d_\d\d')
+                    search = 'experiment--\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d'
+                    exp_time = img.get_name(search)
+                    print(exp_time)
                     well_name = img.get_name('U\d\d--V\d\d')
                     field_name = img.get_name('X\d\d--Y\d\d')
                     channel = img.get_name('C\d\d')
@@ -551,7 +553,8 @@ def main(argv):
                                       filebases,
                                       first_std_fbs,
                                       sec_std_fbs,
-                                      fin_wells
+                                      fin_wells,
+                                      coord_file
                                       )
                 filebases = csv_result['bases']
                 first_std_fbs = csv_result['first']
@@ -631,7 +634,7 @@ def main(argv):
     fov_is = True
     prev_well = ''
     set_gain = ''
-    stage_dict = deafaultdict()
+    stage_dict = defaultdict()
 
     wells = defaultdict()
     green_sorted = defaultdict(list)
@@ -793,7 +796,8 @@ def main(argv):
             sock.send(cstart)
             time.sleep(3)
             if stage3:
-                sock.recv_timeout(40, end_com)
+                stage5 = True
+                #sock.recv_timeout(40, end_com)
             if stage4:
                 stage5 = True
             while stage5:
