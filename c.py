@@ -349,6 +349,12 @@ def main(argv):
     stage3 = True
     stage4 = False
     stage5 = False
+    if end_10x:
+        end_40x = False
+        end_63x = False
+    elif end_40x:
+        end_10x = False
+        end_63x = False
     if coord_file:
         stage1 = False
         stage1after = True
@@ -676,7 +682,6 @@ def main(argv):
             job_list = job_40x
             pattern_list = pattern_40x
         enable = 'true'
-        fov_is = True
     if stage4:
         print('Stage4')
         cstart = camstart_com()
@@ -687,6 +692,7 @@ def main(argv):
         fov_is = False
     for k, v in stage_dict.iteritems():
         if stage3:
+            fov_is = True
             channels = [k,
                         medians['blue'],
                         medians['yellow'],
@@ -772,7 +778,7 @@ def main(argv):
                                    '\n')
                             end_com = ['CAM',
                                        well,
-                                       'E03',
+                                       'E04',
                                        'X0{}--Y0{}'.format(j, i)
                                        ]
     if fov_is:
