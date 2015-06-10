@@ -28,8 +28,12 @@ class Base(object):
         if match:
             return match.group()
         else:
-            print('No match')
-            return None
+            match = re.search(regex, path)
+            if match:
+                return match.group()
+            else:
+                print('No match')
+                return None
 
     def cut_path(self, regex):
         """Remove part of path name matching regex, and return result."""

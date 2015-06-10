@@ -126,6 +126,7 @@ def make_proj(img_list):
     to images. Each channel will make one max projection"""
     channels = []
     try:
+        print('Making max projections')
         ptime = time.time()
         sorted_images = defaultdict(list)
         max_imgs = {}
@@ -140,6 +141,8 @@ def make_proj(img_list):
         print('No images to produce max projection.' , e)
 
 def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
+    """Function to handle the acquired images, do renaming,
+    max projections etc."""
     if img_save is None:
         img_save = True
     if csv_save is None:
@@ -173,7 +176,6 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
             new_paths.append(new_name)
             metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
         os.rename(img_path, new_name)
-    print('Making max projections')
     max_projs = make_proj(new_paths)
     new_dir = imdir+'/maxprojs/'
     if not os.path.exists(new_dir):
@@ -183,12 +185,14 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
     if csv_save:
         print('Calculating histograms')
     for channel, proj in max_projs.iteritems():
-        ptime = time.time()
         if img_save:
+            ptime = time.time()
             p = new_dir+'image--'+well+'--'+field+'--'+channel+'.tif'
             metadata = metadata_d[well+'--'+field+'--'+channel]
             File(p).save_image(proj, metadata)
+            print('Save image:'+str(time.time()-ptime)+' secs')
         if csv_save:
+            ptime = time.time()
             if proj.dtype.name == 'uint8':
                 max_int = 255
             if proj.dtype.name == 'uint16':
@@ -199,10 +203,11 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
                 rows[b].append(count)
             p = new_dir+well+'--'+channel+'.ome.csv'
             write_csv(os.path.normpath(p), rows, ['bin', 'count'])
-        print('Save image:'+str(time.time()-ptime)+' secs')
+            print('Save csv:'+str(time.time()-ptime)+' secs')
     return
 
 def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file):
+    """Function to find the correct csv files and get their base names."""
     search = Directory(path)
     csvs = sorted(search.get_all_files('*.ome.csv'))
     for csv_path in csvs:
@@ -224,6 +229,15 @@ def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file):
             if std_w == well_name:
                 first_fbs.append(fbase)
     return {'wells':wells, 'bases':fbs, 'first':first_fbs, 'sec':sec_fbs}
+
+def parse_reply(reply, root):
+    """Function to parse the reply from the server to find the
+    correct file path."""
+    reply = reply.replace('/relpath:','')
+    paths = reply.split('\\')
+    for path in paths:
+        root = os.path.join(root, path)
+    return root
 
 def main(argv):
     """Main function"""
@@ -491,9 +505,9 @@ def main(argv):
                 # Make a max proj per channel and well.
                 # Save meta data and image max proj.
                 if 'image' in line:
-                    img_name = File(line).get_name('image--.*.tif')
-                    img_paths = img_dir.get_all_files(img_name)
-                    img = File(img_paths[0])
+                    root = parse_reply(line, imaging_dir)
+                    img = File(root)
+                    img_name = img.get_name('image--.*.tif')
                     search = 'experiment--\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d'
                     exp_time = img.get_name(search)
                     print(exp_time)
@@ -803,9 +817,11 @@ def main(argv):
             time.sleep(3)
             if stage3:
                 stage5 = True
+                img_saving = False
                 #sock.recv_timeout(40, end_com)
             if stage4:
                 stage5 = True
+                img_saving = True
             while stage5:
                 reply = sock.recv_timeout(120, ['image--'])
                 for line in reply.splitlines():
@@ -815,19 +831,33 @@ def main(argv):
                     # Make a max proj per channel and field.
                     # Save meta data and image max proj.
                     if 'image' in line:
-                        img_name = File(line).get_name('image--.*.tif')
-                        print(img_name)
-                        job_order = File(line).get_name('E\d\d')
-                        img_paths = img_dir.get_all_files(img_name)
-                        try:
-                            field_path = File(img_paths[0]).get_dir()
-                            get_imgs(field_path,
-                                     imaging_dir,
-                                     job_order,
-                                     csv_save=False
-                                     )
-                        except IndexError as e:
-                            print('No images yet... but maybe later?' , e)
+                        error = True
+                        count = 0
+                        while error and count < 2:
+                            try:
+                                root = parse_reply(line, imaging_dir)
+                                img = File(root)
+                                img_name = img.get_name('image--.*.tif')
+                                print(img_name)
+                                job_order = img.get_name('E\d\d')
+                                #img_paths = img_dir.get_all_files(img_name)
+                                #field_path = File(img_paths[0]).get_dir()
+                                field_path = img.get_dir()
+                                get_imgs(field_path,
+                                         imaging_dir,
+                                         job_order,
+                                         img_save=img_saving,
+                                         csv_save=False
+                                         )
+                                error = False
+                            except IndexError as e:
+                                print('No images yet... but maybe later?' , e)
+                                error = False
+                            except TypeError as e:
+                                error = True
+                                count += 1
+                                time.sleep(1)
+                                print('No images yet... but maybe later?' , e)
                     if all(test in line for test in end_com):
                         stage5 = False
             #time.sleep(3)
