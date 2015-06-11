@@ -646,16 +646,6 @@ def main(argv):
     com = '/cli:1 /app:matrix /cmd:deletelist\n'
     end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
 
-    odd_even = 0
-    dx = 0
-    dy = 0
-    pattern = -1
-    start_of_part = False
-    fov_is = True
-    prev_well = ''
-    set_gain = ''
-    stage_dict = defaultdict()
-
     wells = defaultdict()
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
@@ -683,6 +673,16 @@ def main(argv):
                 mlist.append(int(v[i]))
                 medians[c] = int(np.median(mlist))
     wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
+
+    odd_even = 0
+    dx = 0
+    dy = 0
+    pattern = -1
+    start_of_part = False
+    fov_is = True
+    prev_well = ''
+    set_gain = ''
+    stage_dict = defaultdict()
 
     if stage3:
         print('Stage3')
@@ -748,6 +748,7 @@ def main(argv):
             set_gain = str(c)
             if stage3:
                 start_of_part = True
+                fov_is = True
             if i < 2:
                 detector = '1'
                 job = job_list[i + 3*pattern]
