@@ -140,9 +140,15 @@ def make_proj(img_list):
     except IndexError as e:
         print('No images to produce max projection.' , e)
 
-def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
+def get_imgs(path, imdir, job_order, uvaf=None, img_save=None, csv_save=None):
     """Function to handle the acquired images, do renaming,
     max projections etc."""
+    if uvaf is None:
+        uvaf = False
+    if uvaf:
+        f_exp_job = 1
+    else:
+        f_exp_job = 2
     if img_save is None:
         img_save = True
     if csv_save is None:
@@ -155,19 +161,21 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
         img_array = img.read_image()
         well = img.get_name('U\d\d--V\d\d')
         job_order = img.get_name('E\d\d')
+        job_ord_int = int(re.sub("\D", "", job_order))
         field = img.get_name('X\d\d--Y\d\d')
         z_slice = img.get_name('Z\d\d')
         channel = img.get_name('C\d\d')
-        if job_order == 'E02':
+        if job_ord_int == f_exp_job:
             new_name = (path+'/'+well+'--'+field+'--'+z_slice+'--'+channel+
                         '.ome.tif')
-        elif job_order == 'E03' and channel == 'C00':
+        elif job_ord_int == f_exp_job + 1 and channel == 'C00':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C01.ome.tif'
             channel = 'C01'
-        elif job_order == 'E03' and channel == 'C01':
+        elif job_ord_int == f_exp_job + 1 and channel == 'C01':
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
             channel = 'C02'
-        elif job_order == 'E04': # Not E05. E05 is the order of the UV dummy.
+        elif job_ord_int == f_exp_job + 2:
+            # Not E05. E05 is the order of the UV dummy.
             new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
             channel = 'C03'
         else:
@@ -206,7 +214,7 @@ def get_imgs(path, imdir, job_order, img_save=None, csv_save=None):
             print('Save csv:'+str(time.time()-ptime)+' secs')
     return
 
-def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file):
+def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file, end_63x):
     """Function to find the correct csv files and get their base names."""
     search = Directory(path)
     csvs = sorted(search.get_all_files('*.ome.csv'))
@@ -218,16 +226,24 @@ def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file):
         well_name = csv_file.get_name('U\d\d--V\d\d')
         parent_path = csv_file.get_dir()
         well_path = Directory(parent_path).get_dir()
-        if ('CAM2' in well_path or
-            (coord_file and 'CAM1' in well_path and
-             exp_t in well_path)):
-            if std_w == well_name:
-                sec_fbs.append(fbase)
+        if coord_file or end_63x:
+            if 'CAM1' in well_path and exp_t in well_path:
+                if std_w == well_name:
+                    sec_fbs.append(fbase)
+            elif 'CAM1' in well_path:
+                fbs.append(fbase)
+                wells.append(well_name)
+                if std_w == well_name:
+                    first_fbs.append(fbase)
         else:
-            fbs.append(fbase)
-            wells.append(well_name)
-            if std_w == well_name:
-                first_fbs.append(fbase)
+            if 'CAM2' in well_path:
+                if std_w == well_name:
+                    sec_fbs.append(fbase)
+            elif 'CAM1' in well_path:
+                fbs.append(fbase)
+                wells.append(well_name)
+                if std_w == well_name:
+                    first_fbs.append(fbase)
     return {'wells':wells, 'bases':fbs, 'first':first_fbs, 'sec':sec_fbs}
 
 def parse_reply(reply, root):
@@ -258,7 +274,8 @@ def main(argv):
                                                  '10x',
                                                  '40x',
                                                  '63x',
-                                                 'pre63x'
+                                                 'pre63x',
+                                                 'uvaf'
                                                  ])
     except getopt.GetoptError as e:
         print e
@@ -281,9 +298,10 @@ def main(argv):
     sec_gain_file = None
     host = ''
     end_10x = False
-    end_40x = True
+    end_40x = False
     end_63x = False
     pre_63x = False
+    uv_af = False
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -318,6 +336,8 @@ def main(argv):
             end_63x = True
         elif opt in ('--pre63x'):
             pre_63x = True
+        elif opt in ('--uvaf'):
+            uv_af = True
         else:
             assert False, 'Unhandled option!'
 
@@ -363,6 +383,7 @@ def main(argv):
     stage3 = True
     stage4 = False
     stage5 = False
+    end_slice = 'Z00'
     if end_10x:
         end_40x = False
         end_63x = False
@@ -385,6 +406,7 @@ def main(argv):
         end_40x = False
         stage3 = False
         stage4 = True
+        end_slice = 'Z08'
     elif pre_63x:
         stage3 = False
         stage4 = False
@@ -452,15 +474,12 @@ def main(argv):
     sock.connect(host, port)
 
     # timeout
-    timeout = 300
+    timeout = 600
     # start time
     begin = time.time()
 
     # Timestamp part of path of current experiment folder
     exp_time = ''
-
-    # Path to standard well from second objective.
-    sec_std_path = ''
 
     # lists for keeping csv file base path names and
     # corresponding well names
@@ -497,6 +516,20 @@ def main(argv):
                 # Start CAM scan.
                 sock.send(cstart)
                 stage1 = False
+            elif end_63x and stage2before:
+                print('Stage2')
+                # Add 10x gain scan for wells to CAM list.
+                sock.send(stage2_63x)
+                # Start scan.
+                print(start_com)
+                sock.send(start_com)
+                time.sleep(5)
+                cstart = camstart_com()
+                # Start CAM scan.
+                print(cstart)
+                # Start CAM scan.
+                sock.send(cstart)
+                stage2before = False
             reply = sock.recv_timeout(40, ['image--'])
             for line in reply.splitlines():
                 # Parse reply, check well (UV), field (XY).
@@ -514,6 +547,7 @@ def main(argv):
                     well_name = img.get_name('U\d\d--V\d\d')
                     field_name = img.get_name('X\d\d--Y\d\d')
                     channel = img.get_name('C\d\d')
+                    z_slice = img.get_name('Z\d\d')
                     field_path = img.get_dir()
                     well_path = Directory(field_path).get_dir()
                     if (well_name == std_well and stage2before):
@@ -527,19 +561,19 @@ def main(argv):
                             # Add 40x gain scan in std well to CAM list.
                             sock.send(stage2_40x)
                             cstart = camstart_com()
-                        elif end_63x:
-                            # Add 63x gain scan in std well to CAM list.
-                            sock.send(stage2_63x)
-                            cstart = camstart_com()
+                        #elif end_63x:
+                        #    # Add 63x gain scan in std well to CAM list.
+                        #    sock.send(stage2_63x)
+                        #    cstart = camstart_com()
                         # Start CAM scan.
                         sock.send(cstart)
                         stage2before = False
-                    if field_name == last_field and channel == 'C31':
+                    if field_name == last_field and channel == 'C31' and z_slice == end_slice:
                         if ('CAM2' in well_path or
-                            (coord_file and 'CAM' in well_path)):
+                            (coord_file and 'CAM1' in well_path and
+                             exp_time in well_path) or (end_63x and 'CAM1' in well_path and
+                              exp_time in well_path)):
                             stage2after = True
-                            if well_name == std_well:
-                                sec_std_path = well_path
                         if ((well_name == last_well) and
                             ('CAM2' not in well_path)):
                             stage1after = True
@@ -548,38 +582,40 @@ def main(argv):
                             print(stop_com)
                             sock.send(stop_com)
                             time.sleep(5)
-                        if coord_file and 'CAM' not in well_path:
+                        if (coord_file or end_63x) and 'CAM' not in well_path:
                             make_projs = False
-                        elif not coord_file and 'CAM' not in well_path:
+                        elif (not coord_file or end_63x) and 'CAM' not in well_path:
                             make_projs = False
                         else:
                             make_projs = True
                         ptime = time.time()
                         if make_projs:
-                            get_imgs(well_path, well_path,
+                            get_imgs(well_path,
+                                     well_path,
                                      'E02',
                                      img_save=False
                                      )
                             print(str(time.time()-ptime)+' secs')
                             begin = time.time()
-                # get all CSVs and wells
-                if coord_file or end_63x:
-                    search_dir = imaging_dir
-                else:
-                    search_dir = well_path
-                csv_result = get_csvs(search_dir,
-                                      exp_time,
-                                      std_well,
-                                      filebases,
-                                      first_std_fbs,
-                                      sec_std_fbs,
-                                      fin_wells,
-                                      coord_file
-                                      )
-                filebases = csv_result['bases']
-                first_std_fbs = csv_result['first']
-                sec_std_fbs = csv_result['sec']
-                fin_wells = csv_result['wells']
+                        # get all CSVs and wells
+                        if coord_file or end_63x:
+                            search_dir = imaging_dir
+                        else:
+                            search_dir = well_path
+                        csv_result = get_csvs(search_dir,
+                                              exp_time,
+                                              std_well,
+                                              filebases,
+                                              first_std_fbs,
+                                              sec_std_fbs,
+                                              fin_wells,
+                                              coord_file,
+                                              end_63x
+                                              )
+                        filebases = csv_result['bases']
+                        first_std_fbs = csv_result['first']
+                        sec_std_fbs = csv_result['sec']
+                        fin_wells = csv_result['wells']
         except IndexError as e:
             print('No images yet... but maybe later?' , e)
 
@@ -847,6 +883,7 @@ def main(argv):
                                 get_imgs(field_path,
                                          imaging_dir,
                                          job_order,
+                                         uvaf=uv_af,
                                          img_save=img_saving,
                                          csv_save=False
                                          )
