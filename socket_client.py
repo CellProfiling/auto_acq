@@ -94,9 +94,9 @@ class Client(object):
             # Send data
             # Make compatible with Windows line breaks
             for line in message.splitlines():
-                if line[-2:]=='\r\n':
+                if line.endswith('\r\n'):
                     line = line
-                if line[-1:]=='\n':
+                elif line.endswith('\n'):
                     line = line[:-1] + '\r\n'
                 else:
                     line = line + '\r\n'
@@ -104,9 +104,6 @@ class Client(object):
                 self.sock.send(line)
                 self.recv_timeout(20, line[:-2])
                 time.sleep(0.3)
-                #if 'pmt' in line:
-                    #print('Waiting for objective')
-                    #time.sleep(5)
 
         except socket.error:
             #Send failed

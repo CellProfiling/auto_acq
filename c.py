@@ -30,7 +30,13 @@ def usage():
     --finfield=<field>          : set final field
     --coords=<file>             : set 63x coordinates file
     --host=<ip>                 : set host ip address
-    --inputgain=<file>          : set second calculated gains file""")
+    --inputgain=<file>          : set second calculated gains file
+    --template=<file>           : set template layout file
+    --10x                       : set 10x objective as final objective
+    --40x                       : set 40x objective as final objective
+    --63x                       : set 63x objective as final objective
+    --pre63x                    : stop script after gain scanning
+    --uvaf                      : use UV laser for AF jobs""")
 
 def camstart_com(_afjob=None, _afr=None, _afs=None):
     """Returns a cam command to start the cam scan with selected AF job
@@ -39,25 +45,25 @@ def camstart_com(_afjob=None, _afr=None, _afs=None):
     if _afjob is None:
         afj = ''
     else:
-        afj = ' /afj:'+_afjob
+        afj = ' /afj:' + _afjob
     if _afr is None:
         afr = ''
     else:
-        afr = ' /afr:'+_afr
+        afr = ' /afr:' + _afr
     if _afs is None:
         afs = ''
     else:
-        afs = ' /afs:'+_afs
+        afs = ' /afs:' + _afs
 
     _com = ('/cli:1 /app:matrix /cmd:startcamscan /runtime:36000'
-            ' /repeattime:36000'+afj+afr+afs)
+            ' /repeattime:36000' + afj + afr + afs)
     return _com
 
 def gain_com(_job, _pmt, _gain):
     """Returns a cam command for changing the pmt gain in a job."""
 
-    _com = ('/cli:1 /app:matrix /cmd:adjust /tar:pmt /num:'+_pmt+
-            ' /exp:'+_job+' /prop:gain /value:'+_gain
+    _com = ('/cli:1 /app:matrix /cmd:adjust /tar:pmt /num:' + _pmt +
+            ' /exp:' + _job + ' /prop:gain /value:' + _gain
             )
     return _com
 
@@ -78,9 +84,9 @@ def enable_com(_well, _field, enable):
     welly = get_wfy(_well)
     fieldx = get_wfx(_field)
     fieldy = get_wfy(_field)
-    _com = ('/cli:1 /app:matrix /cmd:enable /slide:0 /wellx:'+wellx+
-            ' /welly:'+welly+' /fieldx:'+fieldx+' /fieldy:'+fieldy+
-            ' /value:'+enable)
+    _com = ('/cli:1 /app:matrix /cmd:enable /slide:0 /wellx:' + wellx +
+            ' /welly:' + welly + ' /fieldx:' + fieldx + ' /fieldy:' + fieldy +
+            ' /value:' + enable)
     return _com
 
 def cam_com(_job, _well, _field, _dx, _dy):
@@ -90,10 +96,10 @@ def cam_com(_job, _well, _field, _dx, _dy):
     _welly = get_wfy(_well)
     _fieldx = get_wfx(_field)
     _fieldy = get_wfy(_field)
-    _com = ('/cli:1 /app:matrix /cmd:add /tar:camlist /exp:'+_job+
-            ' /ext:none /slide:0 /wellx:'+_wellx+' /welly:'+_welly+
-            ' /fieldx:'+_fieldx+' /fieldy:'+_fieldy+' /dxpos:'+_dx+
-            ' /dypos:'+_dy
+    _com = ('/cli:1 /app:matrix /cmd:add /tar:camlist /exp:' + _job +
+            ' /ext:none /slide:0 /wellx:' + _wellx + ' /welly:' + _welly +
+            ' /fieldx:' + _fieldx + ' /fieldy:' + _fieldy + ' /dxpos:' + _dx +
+            ' /dypos:' + _dy
             )
     return _com
 
@@ -135,25 +141,21 @@ def make_proj(img_list):
             channel = img.get_name('C\d\d')
             sorted_images[channel].append(img.read_image())
             max_imgs[channel] = np.maximum.reduce(sorted_images[channel])
-        print('Max proj:'+str(time.time()-ptime)+' secs')
+        print('Max proj:' + str(time.time()-ptime) + ' secs')
         return max_imgs
     except IndexError as e:
-        print('No images to produce max projection.' , e)
+        print('No images to produce max projection.', e)
 
-def get_imgs(path, imdir, job_order, uvaf=None, img_save=None, csv_save=None):
+def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
     """Function to handle the acquired images, do renaming,
     max projections etc."""
-    if uvaf is None:
-        uvaf = False
-    if uvaf:
-        f_exp_job = 1
-    else:
-        f_exp_job = 2
+    if f_job is None:
+        f_job = 2
     if img_save is None:
         img_save = True
     if csv_save is None:
         csv_save = True
-    img_paths = Directory(path).get_all_files('*'+job_order+'*.tif')
+    img_paths = Directory(path).get_all_files('*' + job_order + '*.tif')
     new_paths = []
     metadata_d = {}
     for img_path in img_paths:
@@ -165,27 +167,33 @@ def get_imgs(path, imdir, job_order, uvaf=None, img_save=None, csv_save=None):
         field = img.get_name('X\d\d--Y\d\d')
         z_slice = img.get_name('Z\d\d')
         channel = img.get_name('C\d\d')
-        if job_ord_int == f_exp_job:
-            new_name = (path+'/'+well+'--'+field+'--'+z_slice+'--'+channel+
-                        '.ome.tif')
-        elif job_ord_int == f_exp_job + 1 and channel == 'C00':
-            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C01.ome.tif'
+        if job_ord_int == f_job:
+            new_name = os.path.normpath(os.path.join(path, well + '--' +
+                                        field + '--' + z_slice + '--' +
+                                        channel + '.ome.tif'))
+        elif job_ord_int == f_job + 1 and channel == 'C00':
+            new_name = os.path.normpath(os.path.join(path, well + '--' +
+                                        field + '--' + z_slice +
+                                        '--C01.ome.tif'))
             channel = 'C01'
-        elif job_ord_int == f_exp_job + 1 and channel == 'C01':
-            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C02.ome.tif'
+        elif job_ord_int == f_job + 1 and channel == 'C01':
+            new_name = os.path.normpath(os.path.join(path, well + '--' +
+                                        field + '--' + z_slice +
+                                        '--C02.ome.tif'))
             channel = 'C02'
-        elif job_ord_int == f_exp_job + 2:
-            # Not E05. E05 is the order of the UV dummy.
-            new_name = path+'/'+well+'--'+field+'--'+z_slice+'--C03.ome.tif'
+        elif job_ord_int == f_job + 2:
+            new_name = os.path.normpath(os.path.join(path, well + '--' +
+                                        field + '--' + z_slice +
+                                        '--C03.ome.tif'))
             channel = 'C03'
         else:
             new_name = img_path
         if len(img_array) == 512 or len(img_array) == 2048:
             new_paths.append(new_name)
-            metadata_d[well+'--'+field+'--'+channel] = img.meta_data()
+            metadata_d[well + '--' + field + '--' + channel] = img.meta_data()
         os.rename(img_path, new_name)
     max_projs = make_proj(new_paths)
-    new_dir = imdir+'/maxprojs/'
+    new_dir = os.path.normpath(os.path.join(imdir, 'maxprojs'))
     if not os.path.exists(new_dir):
         os.makedirs(new_dir)
     if img_save:
@@ -195,10 +203,11 @@ def get_imgs(path, imdir, job_order, uvaf=None, img_save=None, csv_save=None):
     for channel, proj in max_projs.iteritems():
         if img_save:
             ptime = time.time()
-            p = new_dir+'image--'+well+'--'+field+'--'+channel+'.tif'
-            metadata = metadata_d[well+'--'+field+'--'+channel]
+            p = os.path.normpath(os.path.join(new_dir, 'image--' + well + '--' +
+                                 field + '--' + channel + '.tif'))
+            metadata = metadata_d[well + '--' + field + '--' + channel]
             File(p).save_image(proj, metadata)
-            print('Save image:'+str(time.time()-ptime)+' secs')
+            print('Save image:' + str(time.time()-ptime) + ' secs')
         if csv_save:
             ptime = time.time()
             if proj.dtype.name == 'uint8':
@@ -209,12 +218,13 @@ def get_imgs(path, imdir, job_order, uvaf=None, img_save=None, csv_save=None):
             rows = defaultdict(list)
             for b, count in enumerate(histo):
                 rows[b].append(count)
-            p = new_dir+well+'--'+channel+'.ome.csv'
-            write_csv(os.path.normpath(p), rows, ['bin', 'count'])
-            print('Save csv:'+str(time.time()-ptime)+' secs')
+            p = os.path.normpath(os.path.join(new_dir, well + '--' + channel +
+                                 '.ome.csv'))
+            write_csv(p, rows, ['bin', 'count'])
+            print('Save csv:' + str(time.time()-ptime) + ' secs')
     return
 
-def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file, end_63x):
+def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, end_63x):
     """Function to find the correct csv files and get their base names."""
     search = Directory(path)
     csvs = sorted(search.get_all_files('*.ome.csv'))
@@ -226,7 +236,7 @@ def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file, end
         well_name = csv_file.get_name('U\d\d--V\d\d')
         parent_path = csv_file.get_dir()
         well_path = Directory(parent_path).get_dir()
-        if coord_file or end_63x:
+        if end_63x:
             if 'CAM1' in well_path and exp_t in well_path:
                 if std_w == well_name:
                     sec_fbs.append(fbase)
@@ -249,7 +259,7 @@ def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, coord_file, end
 def parse_reply(reply, root):
     """Function to parse the reply from the server to find the
     correct file path."""
-    reply = reply.replace('/relpath:','')
+    reply = reply.replace('/relpath:', '')
     paths = reply.split('\\')
     for path in paths:
         root = os.path.join(root, path)
@@ -289,8 +299,10 @@ def main(argv):
     imaging_dir = ''
     working_dir = os.path.dirname(os.path.abspath(__file__))
     std_well = 'U00--V00'
-    first_initialgains_file = os.path.normpath(working_dir+'/10x_gain.csv')
-    sec_initialgains_file = os.path.normpath(working_dir+'/40x_gain.csv')
+    first_initialgains_file = os.path.normpath(os.path.join(working_dir,
+                                                            '10x_gain.csv'))
+    sec_initialgains_file = os.path.normpath(os.path.join(working_dir,
+                                                          '40x_gain.csv'))
     last_well = 'U00--V00'
     last_field = 'X01--Y01'
     template_file = None
@@ -301,7 +313,7 @@ def main(argv):
     end_40x = False
     end_63x = False
     pre_63x = False
-    uv_af = False
+    first_job = 2
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -337,13 +349,14 @@ def main(argv):
         elif opt in ('--pre63x'):
             pre_63x = True
         elif opt in ('--uvaf'):
-            uv_af = True
+            first_job = 1
         else:
             assert False, 'Unhandled option!'
 
     # Paths
-    first_r_script = os.path.normpath(working_dir+'/gain.r')
-    sec_r_script = os.path.normpath(working_dir+'/gain_change_objectives.r')
+    first_r_script = os.path.normpath(os.path.join(working_dir, 'gain.r'))
+    sec_r_script = os.path.normpath(os.path.join(working_dir,
+                                                 'gain_change_objectives.r'))
 
     # Job names
     af_job_10x = 'af10xcam'
@@ -372,6 +385,8 @@ def main(argv):
     pattern_dummy_10x = 'pdummy10x'
     pattern_dummy_40x = 'pdummy40x'
 
+    end_slice = 'Z00'
+
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
 
     # Booleans to control flow.
@@ -383,7 +398,6 @@ def main(argv):
     stage3 = True
     stage4 = False
     stage5 = False
-    end_slice = 'Z00'
     if end_10x:
         end_40x = False
         end_63x = False
@@ -391,15 +405,9 @@ def main(argv):
         end_10x = False
         end_63x = False
     if coord_file:
-        stage1 = False
-        stage1after = True
-        end_10x = False
-        end_40x = False
         end_63x = True
-        stage3 = False
-        stage4 = True
         coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'])
-    elif end_63x:
+    if end_63x:
         stage1 = False
         stage1after = True
         end_10x = False
@@ -410,6 +418,8 @@ def main(argv):
     elif pre_63x:
         stage3 = False
         stage4 = False
+    if sec_gain_file:
+        stage0 = False
     if template_file:
         template = read_csv(template_file, 'gain_from_well', ['well'])
         last_well = sorted(template.keys())[-1]
@@ -418,12 +428,12 @@ def main(argv):
             for i in range(2):
                 stage1_com = (stage1_com +
                               cam_com(pattern_g_10x,
-                                      'U0'+str(int(get_wfx(well))-1)+
-                                        '--V0'+str(int(get_wfy(well))-1),
-                                      'X0'+str(i)+'--Y0'+str(i),
+                                      'U0' + str(int(get_wfx(well)) - 1) +
+                                        '--V0' + str(int(get_wfy(well)) - 1),
+                                      'X0' + str(i) + '--Y0' + str(i),
                                       '0',
                                       '0'
-                                      )+
+                                      ) +
                               '\n')
     else:
         # 10x gain job cam command in all selected wells
@@ -432,39 +442,36 @@ def main(argv):
                 for i in range(2):
                     stage1_com = (stage1_com +
                                   cam_com(pattern_g_10x,
-                                          'U0'+str(u)+'--V0'+str(v),
-                                          'X0'+str(i)+'--Y0'+str(i),
+                                          'U0' + str(u) + '--V0' + str(v),
+                                          'X0' + str(i) + '--Y0' + str(i),
                                           '0',
                                           '0'
-                                          )+
+                                          ) +
                                   '\n')
 
     #stage1_com = stage1_com + '/cli:1 /app:matrix /cmd:pausescan\n'
 
     # 10x gain job cam command in standard well
-    stage2_10x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
-                  cam_com(pattern_g_10x, std_well, 'X00--Y00', '0', '0')+
-                  '\n'+
+    stage2_10x = ('/cli:1 /app:matrix /cmd:deletelist\n' +
+                  cam_com(pattern_g_10x, std_well, 'X00--Y00', '0', '0') +
+                  '\n' +
                   cam_com(pattern_g_10x, std_well, 'X01--Y01', '0', '0'))
 
     # 40x gain job cam command in standard well
-    stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
-                  cam_com(pattern_g_40x, std_well, 'X00--Y00', '0', '0')+
-                  '\n'+
+    stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist\n' +
+                  cam_com(pattern_g_40x, std_well, 'X00--Y00', '0', '0') +
+                  '\n' +
                   cam_com(pattern_g_40x, std_well, 'X01--Y01', '0', '0'))
 
     # 63x gain job cam command in standard well
-    stage2_63x = ('/cli:1 /app:matrix /cmd:deletelist\n'+
-                  cam_com(pattern_g_63x, std_well, 'X00--Y00', '0', '0')+
-                  '\n'+
+    stage2_63x = ('/cli:1 /app:matrix /cmd:deletelist\n' +
+                  cam_com(pattern_g_63x, std_well, 'X00--Y00', '0', '0') +
+                  '\n' +
                   cam_com(pattern_g_63x, std_well, 'X01--Y01', '0', '0'))
 
     start_com = '/cli:1 /app:matrix /cmd:startscan\n'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan\n'
     stop_cam_com = '/cli:1 /app:matrix /cmd:stopcamscan\n'
-
-    # Create imaging directory object
-    img_dir = Directory(imaging_dir)
 
     # Create socket
     sock = Client()
@@ -491,12 +498,9 @@ def main(argv):
     first_gain_dict = defaultdict(list)
     sec_gain_dict = defaultdict(list)
 
-    if sec_gain_file:
-        stage0 = False
-
     while stage0:
         print('stage0')
-        print('Time: '+str(time.time()-begin)+' secs')
+        print('Time: ' + str(time.time()-begin) + ' secs')
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
             break
@@ -561,18 +565,14 @@ def main(argv):
                             # Add 40x gain scan in std well to CAM list.
                             sock.send(stage2_40x)
                             cstart = camstart_com()
-                        #elif end_63x:
-                        #    # Add 63x gain scan in std well to CAM list.
-                        #    sock.send(stage2_63x)
-                        #    cstart = camstart_com()
                         # Start CAM scan.
                         sock.send(cstart)
                         stage2before = False
-                    if field_name == last_field and channel == 'C31' and z_slice == end_slice:
+                    if (field_name == last_field and channel == 'C31' and
+                        z_slice == end_slice):
                         if ('CAM2' in well_path or
-                            (coord_file and 'CAM1' in well_path and
-                             exp_time in well_path) or (end_63x and 'CAM1' in well_path and
-                              exp_time in well_path)):
+                            (end_63x and 'CAM1' in well_path and
+                             exp_time in well_path)):
                             stage2after = True
                         if ((well_name == last_well) and
                             ('CAM2' not in well_path)):
@@ -582,9 +582,7 @@ def main(argv):
                             print(stop_com)
                             sock.send(stop_com)
                             time.sleep(5)
-                        if (coord_file or end_63x) and 'CAM' not in well_path:
-                            make_projs = False
-                        elif (not coord_file or end_63x) and 'CAM' not in well_path:
+                        if 'CAM' not in well_path:
                             make_projs = False
                         else:
                             make_projs = True
@@ -595,10 +593,10 @@ def main(argv):
                                      'E02',
                                      img_save=False
                                      )
-                            print(str(time.time()-ptime)+' secs')
+                            print(str(time.time()-ptime) + ' secs')
                             begin = time.time()
                         # get all CSVs and wells
-                        if coord_file or end_63x:
+                        if end_63x:
                             search_dir = imaging_dir
                         else:
                             search_dir = well_path
@@ -609,7 +607,6 @@ def main(argv):
                                               first_std_fbs,
                                               sec_std_fbs,
                                               fin_wells,
-                                              coord_file,
                                               end_63x
                                               )
                         filebases = csv_result['bases']
@@ -617,7 +614,7 @@ def main(argv):
                         sec_std_fbs = csv_result['sec']
                         fin_wells = csv_result['wells']
         except IndexError as e:
-            print('No images yet... but maybe later?' , e)
+            print('No images yet... but maybe later?', e)
 
         # For all experiment wells imaged so far, run R script
         if filebases and first_std_fbs and sec_std_fbs:
@@ -669,7 +666,10 @@ def main(argv):
         header = ['well', 'green', 'blue', 'yellow', 'red']
         csv_files = ['first_output_gains.csv', 'sec_output_gains.csv']
         for name, d in zip(csv_files, [first_gain_dict, sec_gain_dict]):
-            write_csv(os.path.normpath(working_dir+'/'+name), d, header)
+            write_csv(os.path.normpath(os.path.join(working_dir, name)),
+                      d,
+                      header
+                      )
     else:
         sec_gain_dict = read_csv(sec_gain_file,
                                  'well',
@@ -697,11 +697,11 @@ def main(argv):
                 if template_file:
                     for well in template[k]:
                         green_sorted[green_val].append(well)
-                        well_no = 8*(int(get_wfx(well))-1)+int(get_wfy(well))
+                        well_no = 8*(int(get_wfx(well))-1) + int(get_wfy(well))
                         wells[well_no] = well
                 else:
                     green_sorted[green_val].append(k)
-                    well_no = 8*(int(get_wfx(k))-1)+int(get_wfy(k))
+                    well_no = 8*(int(get_wfx(k))-1) + int(get_wfy(k))
                     wells[well_no] = k
             else:
                 # Find the median value of all gains in
@@ -737,7 +737,7 @@ def main(argv):
         cstart = camstart_com()
         #channels = range(4)
         stage_dict = wells
-        old_well_no = wells.items()[0][0]-1
+        old_well_no = wells.items()[0][0] - 1
         job_list = job_63x
         fov_is = False
     for k, v in stage_dict.iteritems():
@@ -755,7 +755,7 @@ def main(argv):
                         medians['red']
                         ]
             # Check if well no 1-4 or 5-8 etc and continuous.
-            if round((float(k)+1)/4) % 2 == odd_even:
+            if round((float(k)+1) / 4) % 2 == odd_even:
                 pattern = 0
                 start_of_part = True
                 if odd_even == 0:
@@ -779,7 +779,6 @@ def main(argv):
         elif start_of_part and not fov_is:
             # reset the com string
             com = '/cli:1 /app:matrix /cmd:deletelist\n'
-            fov_is = False
         for i, c in enumerate(channels):
             set_gain = str(c)
             if stage3:
@@ -817,19 +816,19 @@ def main(argv):
                                    enable_com(well,
                                               'X0{}--Y0{}'.format(j, i),
                                               enable
-                                              )+
-                                   '\n'+
+                                              ) +
+                                   '\n' +
                                    # dx dy switched, scan rot -90 degrees
                                    cam_com(pattern_list,
                                            well,
                                            'X0{}--Y0{}'.format(j, i),
                                            str(dy),
                                            str(dx)
-                                           )+
+                                           ) +
                                    '\n')
                             end_com = ['CAM',
                                        well,
-                                       'E04',
+                                       'E0' + str(first_job + 2),
                                        'X0{}--Y0{}'.format(j, i)
                                        ]
     if fov_is:
@@ -877,13 +876,11 @@ def main(argv):
                                 img_name = img.get_name('image--.*.tif')
                                 print(img_name)
                                 job_order = img.get_name('E\d\d')
-                                #img_paths = img_dir.get_all_files(img_name)
-                                #field_path = File(img_paths[0]).get_dir()
                                 field_path = img.get_dir()
                                 get_imgs(field_path,
                                          imaging_dir,
                                          job_order,
-                                         uvaf=uv_af,
+                                         f_job=first_job,
                                          img_save=img_saving,
                                          csv_save=False
                                          )
