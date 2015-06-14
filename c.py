@@ -676,12 +676,6 @@ def main(argv):
                                  ['green', 'blue', 'yellow', 'red']
                                  )
 
-    # Lists for storing command strings.
-    com_list = []
-    end_com_list = []
-    com = '/cli:1 /app:matrix /cmd:deletelist\n'
-    end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
-
     wells = defaultdict()
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
@@ -709,6 +703,12 @@ def main(argv):
                 mlist.append(int(v[i]))
                 medians[c] = int(np.median(mlist))
     wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
+
+    # Lists for storing command strings.
+    com_list = []
+    end_com_list = []
+    com = '/cli:1 /app:matrix /cmd:deletelist\n'
+    end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
 
     odd_even = 0
     dx = 0
@@ -806,7 +806,7 @@ def main(argv):
                                 dx = coords[fov][0]
                                 dy = coords[fov][1]
                                 fov_is = True
-                            elif end_63x:
+                            elif not coord_file:
                                 enable = 'true'
                                 fov_is = True
                             else:
