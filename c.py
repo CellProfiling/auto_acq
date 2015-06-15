@@ -385,7 +385,7 @@ def main(argv):
     pattern_dummy_10x = 'pdummy10x'
     pattern_dummy_40x = 'pdummy40x'
 
-    end_slice = 'Z00'
+    #end_slice = 'Z00'
 
     stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
 
@@ -414,7 +414,7 @@ def main(argv):
         end_40x = False
         stage3 = False
         stage4 = True
-        end_slice = 'Z08'
+        #end_slice = 'Z08'
     elif pre_63x:
         stage3 = False
         stage4 = False
@@ -568,8 +568,7 @@ def main(argv):
                         # Start CAM scan.
                         sock.send(cstart)
                         stage2before = False
-                    if (field_name == last_field and channel == 'C31' and
-                        z_slice == end_slice):
+                    if (field_name == last_field and channel == 'C31'):
                         if ('CAM2' in well_path or
                             (end_63x and 'CAM1' in well_path and
                              exp_time in well_path)):
