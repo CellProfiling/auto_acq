@@ -189,7 +189,7 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
             channel = 'C03'
         else:
             new_name = img_path
-        if len(img_array) == 256 or len(img_array) == 512 or len(img_array) == 2048:
+        if not len(img_array) == 16:
             new_paths.append(new_name)
             metadata_d[well + '--' + field + '--' + channel] = img.meta_data()
         os.rename(img_path, new_name)
