@@ -24,8 +24,7 @@ def usage():
     -i <dir>, --input=<dir>     : set imaging directory
     --wdir=<dir>                : set working directory
     --std=<well>                : set standard well
-    --firstgain=<file>          : set first initial gains file
-    --secondgain=<file>         : set second initial gains file
+    --gainfile=<file>           : set initial gains file
     --finwell=<well>            : set final well
     --finfield=<field>          : set final field
     --coords=<file>             : set 63x coordinates file
@@ -35,7 +34,6 @@ def usage():
     --10x                       : set 10x objective as final objective
     --40x                       : set 40x objective as final objective
     --63x                       : set 63x objective as final objective
-    --pre63x                    : stop script after gain scanning
     --uvaf                      : use UV laser for AF jobs
     --gain                      : stop script after gain scanning""")
 
@@ -225,7 +223,7 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
             print('Save csv:' + str(time.time()-ptime) + ' secs')
     return
 
-def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, end_63x):
+def get_csvs(path, fbs, wells):
     """Function to find the correct csv files and get their base names."""
     search = Directory(path)
     csvs = sorted(search.get_all_files('*.ome.csv'))
@@ -235,27 +233,9 @@ def get_csvs(path, exp_t, std_w, fbs, first_fbs, sec_fbs, wells, end_63x):
         fbase = csv_file.cut_path('C\d\d.+$')
         #  Get the well from the csv path.
         well_name = csv_file.get_name('U\d\d--V\d\d')
-        parent_path = csv_file.get_dir()
-        well_path = Directory(parent_path).get_dir()
-        if end_63x:
-            if 'CAM1' in well_path and exp_t in well_path:
-                if std_w == well_name:
-                    sec_fbs.append(fbase)
-            elif 'CAM1' in well_path:
-                fbs.append(fbase)
-                wells.append(well_name)
-                if std_w == well_name:
-                    first_fbs.append(fbase)
-        else:
-            if 'CAM2' in well_path:
-                if std_w == well_name:
-                    sec_fbs.append(fbase)
-            elif 'CAM1' in well_path:
-                fbs.append(fbase)
-                wells.append(well_name)
-                if std_w == well_name:
-                    first_fbs.append(fbase)
-    return {'wells':wells, 'bases':fbs, 'first':first_fbs, 'sec':sec_fbs}
+        fbs.append(fbase)
+        wells.append(well_name)
+    return {'wells':wells, 'bases':fbs}
 
 def parse_reply(reply, root):
     """Function to parse the reply from the server to find the
@@ -266,6 +246,214 @@ def parse_reply(reply, root):
         root = os.path.join(root, path)
     return root
 
+def set_gain(com, channels, job_list):
+    for i, c in enumerate(channels):
+        gain = str(c)
+        if i < 2:
+            detector = '1'
+            job = job_list[i]
+        if i >= 2:
+            detector = '2'
+            job = job_list[i - 1]
+        com = com + gain_com(job, detector, gain) + '\n'
+    return com
+
+def gen_cam_com(com, pattern, well, fieldx, fieldy, enable, dx, dy):
+    com = (com +
+           enable_com(well,
+                      'X0{}--Y0{}'.format(fieldx, fieldy),
+                      enable
+                      ) +
+           '\n' +
+           # dx dy switched, scan rot -90 degrees
+           cam_com(pattern,
+                   well,
+                   'X0{}--Y0{}'.format(fieldx, fieldx),
+                   str(dy),
+                   str(dx)
+                   ) +
+           '\n')
+    return com
+
+def gen_com(gain_dict,
+            template,
+            job_list,
+            pattern,
+            first_job
+            coords=None
+            ):
+    parsed = parse_gain(gain_dict, template=template)
+    green_sorted = parsed['green']
+    medians = parsed['medians']
+    dx = 0
+    dy = 0
+    # Lists for storing command strings.
+    com_list = []
+    end_com_list = []
+    com = '/cli:1 /app:matrix /cmd:deletelist\n'
+    end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
+    for gain, wells in green_sorted.iteritems():
+        channels = [gain,
+                    medians['blue'],
+                    medians['yellow'],
+                    medians['red']
+                    ]
+        com = set_gain(com, channels, job_list)
+        if coords is None:
+            coords = {}
+        for well in sorted(wells):
+            for i in range(2):
+                for j in range(2):
+                    # Only enable selected wells from file (arg)
+                    fov = '{}--X0{}--Y0{}'.format(well, j, i)
+                    if fov in coords.keys():
+                        enable = 'true'
+                        dx = coords[fov][0]
+                        dy = coords[fov][1]
+                        fov_is = True
+                    elif not coords:
+                        enable = 'true'
+                        fov_is = True
+                    else:
+                        enable = 'false'
+                        fov_is = False
+                    if fov_is:
+                        com = gen_cam_com(com, pattern, well, j, i, enable, dx, dy)
+                        end_com = ['CAM',
+                                   well,
+                                   'E0' + str(first_job + 2),
+                                   'X0{}--Y0{}'.format(j, i)
+                                   ]
+        # Store the commands in lists.
+        com_list.append(com)
+        end_com_list.append(end_com)
+    return {'com': com_list, 'end_com': end_com_list}
+
+def run_r(filebases,
+          fin_wells,
+          r_script,
+          imaging_dir,
+          initialgains_file,
+          gain_dict
+          ):
+    # Get a unique set of filebases from the csv paths.
+    filebases = sorted(set(filebases))
+    # Get a unique set of names of the experiment wells.
+    fin_wells = sorted(set(fin_wells))
+    for fbase, well in zip(filebases, fin_wells):
+        print(well)
+        try:
+            print('Starting R...')
+            r_output = subprocess.check_output(['Rscript',
+                                                r_script,
+                                                imaging_dir,
+                                                fbase,
+                                                initialgains_file
+                                                ])
+            gain_dict = process_output(well, r_output, gain_dict)
+        except OSError as e:
+            print('Execution failed:', e)
+            sys.exit()
+        except subprocess.CalledProcessError as e:
+            print('Subprocess returned a non-zero exit status:', e)
+            sys.exit()
+        print(r_output)
+    return gain_dict
+
+def get_gain(reply,
+             imaging_dir,
+             last_field,
+             last_well,
+             stage,
+             stop_com,
+             r_script,
+             initialgains_file,
+             begin,
+             gain_dict
+             ):
+    # empty lists for keeping csv file base path names
+    # and corresponding well names
+    filebases = []
+    fin_wells = []
+    for line in reply.splitlines():
+        # Parse reply, check well (UV), field (XY).
+        # Get well path.
+        # Get all image paths in well.
+        # Make a max proj per channel and well.
+        # Save meta data and image max proj.
+        if 'image' in line:
+            root = parse_reply(line, imaging_dir)
+            img = File(root)
+            img_name = img.get_name('image--.*.tif')
+            well_name = img.get_name('U\d\d--V\d\d')
+            field_name = img.get_name('X\d\d--Y\d\d')
+            channel = img.get_name('C\d\d')
+            field_path = img.get_dir()
+            well_path = Directory(field_path).get_dir()
+            if (field_name == last_field and channel == 'C31'):
+                if well_name == last_well:
+                    stage = False
+                    print(stop_com)
+                    sock.send(stop_com)
+                    time.sleep(5)
+                if 'CAM' in well_path:
+                    make_projs = True
+                else:
+                    make_projs = False
+                ptime = time.time()
+                if make_projs:
+                    get_imgs(well_path,
+                             well_path,
+                             'E02',
+                             img_save=False
+                             )
+                    print(str(time.time()-ptime) + ' secs')
+                    begin = time.time()
+                # get all CSVs and wells
+                csv_result = get_csvs(well_path,
+                                      filebases,
+                                      fin_wells,
+                                      )
+                filebases = csv_result['bases']
+                fin_wells = csv_result['wells']
+
+    # For all experiment wells imaged so far, run R script
+    if filebases:
+        gain_dict = run_r(filebases,
+                          fin_wells,
+                          r_script,
+                          imaging_dir,
+                          initialgains_file,
+                          gain_dict
+                          )
+    return {'begin': begin,
+            'gain_dict': gain_dict,
+            'stage': stage
+            }
+
+def parse_gain(gain_dict, template=None):
+    green_sorted = defaultdict(list)
+    medians = defaultdict(int)
+    for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
+        mlist = []
+        for k, v in gain_dict.iteritems():
+            # Sort gain data into a list dict with well as key and where the
+            # value is a list with a gain value for each channel.
+            if c == 'green':
+                # Round gain values to multiples of 10 in green channel
+                green_val = int(round(int(v[i]), -1))
+                if template:
+                    for well in template[k]:
+                        green_sorted[green_val].append(well)
+                else:
+                    green_sorted[green_val].append(k)
+            else:
+                # Find the median value of all gains in
+                # blue, yellow and red channels.
+                mlist.append(int(v[i]))
+                medians[c] = int(np.median(mlist))
+    return {'green':green_sorted, 'medians':medians}
+
 def main(argv):
     """Main function"""
 
@@ -274,7 +462,7 @@ def main(argv):
                                                  'input=',
                                                  'wdir=',
                                                  'std=',
-                                                 'firstgain=',
+                                                 'gainfile=',
                                                  'secondgain=',
                                                  'finwell=',
                                                  'finfield=',
@@ -285,7 +473,6 @@ def main(argv):
                                                  '10x',
                                                  '40x',
                                                  '63x',
-                                                 'pre63x',
                                                  'uvaf',
                                                  'gain'
                                                  ])
@@ -301,20 +488,17 @@ def main(argv):
     imaging_dir = ''
     working_dir = os.path.dirname(os.path.abspath(__file__))
     std_well = 'U00--V00'
-    first_initialgains_file = os.path.normpath(os.path.join(working_dir,
+    initialgains_file = os.path.normpath(os.path.join(working_dir,
                                                             '10x_gain.csv'))
-    sec_initialgains_file = os.path.normpath(os.path.join(working_dir,
-                                                          '40x_gain.csv'))
     last_well = 'U00--V00'
     last_field = 'X01--Y01'
     template_file = None
     coord_file = None
-    sec_gain_file = None
+    gain_file = None
     host = ''
     end_10x = False
     end_40x = False
     end_63x = False
-    pre_63x = False
     gain_only = False
     first_job = 2
     for opt, arg in opts:
@@ -327,10 +511,8 @@ def main(argv):
             working_dir = os.path.normpath(arg)
         elif opt in ('--std'):
             std_well = arg # 'U00--V00'
-        elif opt in ('--firstgain'):
-            first_initialgains_file = os.path.normpath(arg)
-        elif opt in ('--secondgain'):
-            sec_initialgains_file = os.path.normpath(arg)
+        elif opt in ('--gainfile'):
+            initialgains_file = os.path.normpath(arg)
         elif opt in ('--finwell'):
             last_well = arg # 'U00--V00'
         elif opt in ('--finfield'):
@@ -340,7 +522,7 @@ def main(argv):
         elif opt in ('--host'):
             host = arg
         elif opt in ('--inputgain'):
-            sec_gain_file = arg
+            gain_file = arg
         elif opt in ('--template'):
             template_file = arg
         elif opt in ('--10x'):
@@ -349,8 +531,6 @@ def main(argv):
             end_40x = True
         elif opt in ('--63x'):
             end_63x = True
-        elif opt in ('--pre63x'):
-            pre_63x = True
         elif opt in ('--uvaf'):
             first_job = 1
         elif opt in ('--gain'):
@@ -359,9 +539,7 @@ def main(argv):
             assert False, 'Unhandled option!'
 
     # Paths
-    first_r_script = os.path.normpath(os.path.join(working_dir, 'gain.r'))
-    sec_r_script = os.path.normpath(os.path.join(working_dir,
-                                                 'gain_change_objectives.r'))
+    r_script = os.path.normpath(os.path.join(working_dir, 'gain.r'))
 
     # Job names
     af_job_10x = 'af10xcam'
@@ -385,23 +563,22 @@ def main(argv):
     pattern_40x = 'pattern2'
     job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
                'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
-    pattern_63x = ['pattern3', 'pattern4', 'pattern5', 'pattern6']
+    pattern_63x = 'pattern3'
     job_dummy_10x = 'dummy10x'
     pattern_dummy_10x = 'pdummy10x'
     pattern_dummy_40x = 'pdummy40x'
 
     pattern_g = pattern_g_10x
 
-    #end_slice = 'Z00'
-
-    stage1_com = '/cli:1 /app:matrix /cmd:deletelist\n'
+    # Lists for storing command strings.
+    com_list = []
+    end_com_list = []
+    com = '/cli:1 /app:matrix /cmd:deletelist\n'
+    end_com = []
 
     # Booleans to control flow.
-    stage0 = True
     stage1 = True
-    stage1after = False
-    stage2before = True
-    stage2after = False
+    stage2 = True
     stage3 = True
     stage4 = False
     stage5 = False
@@ -409,82 +586,64 @@ def main(argv):
         end_40x = False
         end_63x = False
         pattern_g = pattern_g_10x
+        job_list = job_10x
+        pattern = pattern_10x
     elif end_40x:
         end_10x = False
         end_63x = False
         pattern_g = pattern_g_40x
+        job_list = job_40x
+        pattern = pattern_40x
     if coord_file:
         end_63x = True
         coords = read_csv(coord_file, 'fov', ['dxPx', 'dyPx'])
+    else:
+        coords = None
     if end_63x:
         stage1 = False
-        stage1after = True
         end_10x = False
         end_40x = False
         stage3 = False
         stage4 = True
         pattern_g = pattern_g_63x
-        #end_slice = 'Z08'
-    elif pre_63x:
-        stage3 = False
-        stage4 = False
+        job_list = job_63x
+        pattern = pattern_63x
     if gain_only:
         stage3 = False
         stage4 = False
-    if sec_gain_file:
-        stage0 = False
+    if gain_file:
+        stage1 = False
+    wells = []
     if template_file:
         template = read_csv(template_file, 'gain_from_well', ['well'])
         last_well = sorted(template.keys())[-1]
-        # selected objective gain job cam command in selected wells from template file
-        for well in sorted(template.keys()):
-            for i in range(2):
-                stage1_com = (stage1_com +
-                              cam_com(pattern_g,
-                                      'U0' + str(int(get_wfx(well)) - 1) +
-                                        '--V0' + str(int(get_wfy(well)) - 1),
-                                      'X0' + str(i) + '--Y0' + str(i),
-                                      '0',
-                                      '0'
-                                      ) +
-                              '\n')
+        # Selected wells from template file.
+        wells = sorted(template.keys())
     else:
-        # selected objective gain job cam command in all selected wells
+        template = None
+        # All wells.
         for u in range(int(get_wfx(last_well))):
             for v in range(int(get_wfy(last_well))):
-                for i in range(2):
-                    stage1_com = (stage1_com +
-                                  cam_com(pattern_g,
-                                          'U0' + str(u) + '--V0' + str(v),
-                                          'X0' + str(i) + '--Y0' + str(i),
-                                          '0',
-                                          '0'
-                                          ) +
-                                  '\n')
+                wells.append('U0' + str(u) + '--V0' + str(v))
+    # Selected objective gain job cam command in wells.
+    for well in wells:
+        for i in range(2):
+            com = gen_cam_com(com, pattern_g, well, i, i, 'true', 0, 0)
+            end_com = ['CAM',
+                       well,
+                       'E0' + str(2),
+                       'X0{}--Y0{}'.format(i, i)
+                       ]
+        com_list.append(com)
+        end_com_list.append(end_com)
+        com = ''
 
-    #stage1_com = stage1_com + '/cli:1 /app:matrix /cmd:pausescan\n'
-
-    # 10x gain job cam command in standard well
-    stage2_10x = ('/cli:1 /app:matrix /cmd:deletelist\n' +
-                  cam_com(pattern_g_10x, std_well, 'X00--Y00', '0', '0') +
-                  '\n' +
-                  cam_com(pattern_g_10x, std_well, 'X01--Y01', '0', '0'))
-
-    # 40x gain job cam command in standard well
-    stage2_40x = ('/cli:1 /app:matrix /cmd:deletelist\n' +
-                  cam_com(pattern_g_40x, std_well, 'X00--Y00', '0', '0') +
-                  '\n' +
-                  cam_com(pattern_g_40x, std_well, 'X01--Y01', '0', '0'))
-
-    # 63x gain job cam command in standard well
-    stage2_63x = ('/cli:1 /app:matrix /cmd:deletelist\n' +
-                  cam_com(pattern_g_63x, std_well, 'X00--Y00', '0', '0') +
-                  '\n' +
-                  cam_com(pattern_g_63x, std_well, 'X01--Y01', '0', '0'))
+    com = ''.join(com_list)
 
     start_com = '/cli:1 /app:matrix /cmd:startscan\n'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan\n'
     stop_cam_com = '/cli:1 /app:matrix /cmd:stopcamscan\n'
+    cstart = camstart_com()
 
     # Create socket
     sock = Client()
@@ -498,355 +657,88 @@ def main(argv):
     # start time
     begin = time.time()
 
-    # Timestamp part of path of current experiment folder
-    exp_time = ''
-
     # lists for keeping csv file base path names and
     # corresponding well names
     filebases = []
-    first_std_fbs = []
-    sec_std_fbs = []
     fin_wells = []
 
-    first_gain_dict = defaultdict(list)
-    sec_gain_dict = defaultdict(list)
+    # dicts of lists to store wells with gain values for the four channels.
+    gain_dict = defaultdict(list)
+    saved_gains = defaultdict(list)
 
-    while stage0:
-        print('stage0')
+    while stage1:
+        print('Stage1')
         print('Time: ' + str(time.time()-begin) + ' secs')
         if ((time.time()-begin) > timeout):
             print('Timeout! No more images to process!')
             break
         print('Waiting for images...')
-        try:
-            if stage1:
-                print('Stage1')
-                # Add 10x gain scan for wells to CAM list.
-                sock.send(stage1_com)
-                # Start scan.
-                print(start_com)
-                sock.send(start_com)
-                time.sleep(5)
-                cstart = camstart_com()
-                # Start CAM scan.
-                print(cstart)
-                # Start CAM scan.
-                sock.send(cstart)
-                stage1 = False
-            elif end_63x and stage2before:
-                print('Stage2')
-                # Add 10x gain scan for wells to CAM list.
-                sock.send(stage2_63x)
-                # Start scan.
-                print(start_com)
-                sock.send(start_com)
-                time.sleep(5)
-                cstart = camstart_com()
-                # Start CAM scan.
-                print(cstart)
-                # Start CAM scan.
-                sock.send(cstart)
-                stage2before = False
-            reply = sock.recv_timeout(40, ['image--'])
-            for line in reply.splitlines():
-                # Parse reply, check well (UV), field (XY).
-                # Get well path.
-                # Get all image paths in well.
-                # Make a max proj per channel and well.
-                # Save meta data and image max proj.
-                if 'image' in line:
-                    root = parse_reply(line, imaging_dir)
-                    img = File(root)
-                    img_name = img.get_name('image--.*.tif')
-                    search = 'experiment--\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d'
-                    exp_time = img.get_name(search)
-                    print(exp_time)
-                    well_name = img.get_name('U\d\d--V\d\d')
-                    field_name = img.get_name('X\d\d--Y\d\d')
-                    channel = img.get_name('C\d\d')
-                    z_slice = img.get_name('Z\d\d')
-                    field_path = img.get_dir()
-                    well_path = Directory(field_path).get_dir()
-                    if (well_name == std_well and stage2before):
-                        print('Stage2')
-                        time.sleep(3)
-                        if end_10x or pre_63x:
-                            # Add 10x gain scan in std well to CAM list.
-                            sock.send(stage2_10x)
-                            cstart = camstart_com()
-                        elif end_40x:
-                            # Add 40x gain scan in std well to CAM list.
-                            sock.send(stage2_40x)
-                            cstart = camstart_com()
-                        # Start CAM scan.
-                        sock.send(cstart)
-                        stage2before = False
-                    if (field_name == last_field and channel == 'C31'):
-                        if ('CAM2' in well_path or
-                            (end_63x and 'CAM1' in well_path and
-                             exp_time in well_path)):
-                            stage2after = True
-                        if ((well_name == last_well) and
-                            ('CAM2' not in well_path)):
-                            stage1after = True
-                        if stage1after and stage2after:
-                            stage0 = False
-                            print(stop_com)
-                            sock.send(stop_com)
-                            time.sleep(5)
-                        if 'CAM' not in well_path:
-                            make_projs = False
-                        else:
-                            make_projs = True
-                        ptime = time.time()
-                        if make_projs:
-                            get_imgs(well_path,
-                                     well_path,
-                                     'E02',
-                                     img_save=False
-                                     )
-                            print(str(time.time()-ptime) + ' secs')
-                            begin = time.time()
-                        # get all CSVs and wells
-                        if end_63x:
-                            search_dir = imaging_dir
-                        else:
-                            search_dir = well_path
-                        csv_result = get_csvs(search_dir,
-                                              exp_time,
-                                              std_well,
-                                              filebases,
-                                              first_std_fbs,
-                                              sec_std_fbs,
-                                              fin_wells,
-                                              end_63x
-                                              )
-                        filebases = csv_result['bases']
-                        first_std_fbs = csv_result['first']
-                        sec_std_fbs = csv_result['sec']
-                        fin_wells = csv_result['wells']
-        except IndexError as e:
-            print('No images yet... but maybe later?', e)
+        if stage2:
+            print('Stage2')
+            # Add gain scan for wells to CAM list.
+            sock.send(com)
+            # Start scan.
+            print(start_com)
+            sock.send(start_com)
+            time.sleep(5)
+            # Start CAM scan.
+            print(cstart)
+            # Start CAM scan.
+            sock.send(cstart)
+            stage2 = False
+        reply = sock.recv_timeout(40, ['image--'])
+        gain_result = get_gain(reply,
+                               imaging_dir,
+                               last_field,
+                               last_well,
+                               stage1,
+                               stop_com,
+                               r_script,
+                               initialgains_file,
+                               begin,
+                               gain_dict
+                               )
+        begin = gain_result['begin']
+        gain_dict = gain_result['gain_dict']
+        stage1 = gain_result['stage']
 
-        # For all experiment wells imaged so far, run R script
-        if filebases and first_std_fbs and sec_std_fbs:
-            # Get a unique set of filebases from the csv paths.
-            filebases = sorted(set(filebases))
-            first_std_fbs = sorted(set(first_std_fbs))
-            sec_std_fbs = sorted(set(sec_std_fbs))
-            # Get a unique set of names of the experiment wells.
-            fin_wells = sorted(set(fin_wells))
-            for fbase, well in zip(filebases, fin_wells):
-                print(well)
-                try:
-                    print('Starting R...')
-                    r_output = subprocess.check_output(['Rscript',
-                                                        first_r_script,
-                                                        imaging_dir,
-                                                        fbase,
-                                                        first_initialgains_file
-                                                        ])
-                    first_gain_dict = process_output(well,
-                                                      r_output,
-                                                      first_gain_dict
-                                                      )
-                    input_gains = r_output
-                    r_output = subprocess.check_output(['Rscript',
-                                                        sec_r_script,
-                                                        imaging_dir,
-                                                        first_std_fbs[0],
-                                                        first_initialgains_file,
-                                                        input_gains,
-                                                        imaging_dir,
-                                                        sec_std_fbs[0],
-                                                        sec_initialgains_file
-                                                        ])
-                except OSError as e:
-                    print('Execution failed:', e)
-                    sys.exit()
-                except subprocess.CalledProcessError as e:
-                    print('Subprocess returned a non-zero exit status:', e)
-                    sys.exit()
-                print(r_output)
-                sec_gain_dict = process_output(well, r_output, sec_gain_dict)
-            # empty lists for keeping csv file base path names
-            # and corresponding well names
-            filebases = []
-            fin_wells = []
-
-    if not sec_gain_file:
-        header = ['well', 'green', 'blue', 'yellow', 'red']
-        csv_files = ['first_output_gains.csv', 'sec_output_gains.csv']
-        for name, d in zip(csv_files, [first_gain_dict, sec_gain_dict]):
-            write_csv(os.path.normpath(os.path.join(working_dir, name)),
-                      d,
-                      header
-                      )
+    if gain_file:
+        gain_dict = read_csv(gain_file,
+                             'well',
+                             ['green', 'blue', 'yellow', 'red']
+                             )
     else:
-        sec_gain_dict = read_csv(sec_gain_file,
-                                 'well',
-                                 ['green', 'blue', 'yellow', 'red']
-                                 )
-
-    wells = defaultdict()
-    green_sorted = defaultdict(list)
-    medians = defaultdict(int)
-
-    for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
-        mlist = []
-        for k, v in sec_gain_dict.iteritems():
-            # Sort gain data into a list dict with well as key and where the
-            # value is a list with a gain value for each channel.
-            if c == 'green':
-                # Round gain values to multiples of 10 in green channel
-                green_val = int(round(int(v[i]), -1))
-                if template_file:
-                    for well in template[k]:
-                        green_sorted[green_val].append(well)
-                        well_no = 8*(int(get_wfx(well))-1) + int(get_wfy(well))
-                        wells[well_no] = well
-                else:
-                    green_sorted[green_val].append(k)
-                    well_no = 8*(int(get_wfx(k))-1) + int(get_wfy(k))
-                    wells[well_no] = k
-            else:
-                # Find the median value of all gains in
-                # blue, yellow and red channels.
-                mlist.append(int(v[i]))
-                medians[c] = int(np.median(mlist))
-    wells = OrderedDict(sorted(wells.items(), key=lambda t: t[0]))
-
-    # Lists for storing command strings.
-    com_list = []
-    end_com_list = []
-    com = '/cli:1 /app:matrix /cmd:deletelist\n'
-    end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
-
-    odd_even = 0
-    dx = 0
-    dy = 0
-    pattern = -1
-    start_of_part = False
-    fov_is = True
-    prev_well = ''
-    set_gain = ''
-    stage_dict = defaultdict()
+        header = ['well', 'green', 'blue', 'yellow', 'red']
+        csv_name = 'output_gains.csv'
+        write_csv(os.path.normpath(os.path.join(working_dir, csv_name)),
+                  gain_dict,
+                  header
+                  )
 
     if stage3:
         print('Stage3')
-        cstart = camstart_com()
-        stage_dict = green_sorted
-        pattern = 0
-        if end_10x:
-            job_list = job_10x
-            pattern_list = pattern_10x
-        elif end_40x:
-            job_list = job_40x
-            pattern_list = pattern_40x
-        enable = 'true'
+        com_result = gen_com(gain_dict,
+                             template,
+                             job_list,
+                             pattern,
+                             first_job
+                             )
+        com_list = com_result['com']
+        end_com_list = com_result['end_com']
+
     if stage4:
         print('Stage4')
-        cstart = camstart_com()
-        #channels = range(4)
-        stage_dict = wells
-        old_well_no = wells.items()[0][0] - 1
-        job_list = job_63x
-        fov_is = False
-    for k, v in stage_dict.iteritems():
-        if stage3:
-            fov_is = True
-            channels = [k,
-                        medians['blue'],
-                        medians['yellow'],
-                        medians['red']
-                        ]
-        if stage4:
-            channels = [sec_gain_dict[v][0],
-                        medians['blue'],
-                        medians['yellow'],
-                        medians['red']
-                        ]
-            # Check if well no 1-4 or 5-8 etc and continuous.
-            if round((float(k)+1) / 4) % 2 == odd_even:
-                pattern = 0
-                start_of_part = True
-                if odd_even == 0:
-                    odd_even = 1
-                else:
-                    odd_even = 0
-            elif old_well_no + 1 != k:
-                pattern = 0
-                start_of_part = True
-            else:
-                pattern += 1
-                start_of_part = False
-            pattern_list = pattern_63x[pattern]
-            old_well_no = k
-        if start_of_part and fov_is:
-            # Store the commands in lists, after one well at least.
-            com_list.append(com)
-            end_com_list.append(end_com)
-            com = '/cli:1 /app:matrix /cmd:deletelist\n'
-            fov_is = False
-        elif start_of_part and not fov_is:
-            # reset the com string
-            com = '/cli:1 /app:matrix /cmd:deletelist\n'
-        for i, c in enumerate(channels):
-            set_gain = str(c)
-            if stage3:
-                start_of_part = True
-                fov_is = True
-            if i < 2:
-                detector = '1'
-                job = job_list[i + 3*pattern]
-            if i >= 2:
-                detector = '2'
-                job = job_list[i - 1 + 3*pattern]
-            com = com + gain_com(job, detector, set_gain) + '\n'
-        for well in v:
-            if stage4:
-                well = v
-            if well != prev_well:
-                prev_well = well
-                for i in range(2):
-                    for j in range(2):
-                        if stage4:
-                            # Only enable selected wells from file (arg)
-                            fov = '{}--X0{}--Y0{}'.format(well, j, i)
-                            if coord_file and fov in coords.keys():
-                                enable = 'true'
-                                dx = coords[fov][0]
-                                dy = coords[fov][1]
-                                fov_is = True
-                            elif not coord_file:
-                                enable = 'true'
-                                fov_is = True
-                            else:
-                                enable = 'false'
-                        if enable == 'true' or stage3:
-                            com = (com +
-                                   enable_com(well,
-                                              'X0{}--Y0{}'.format(j, i),
-                                              enable
-                                              ) +
-                                   '\n' +
-                                   # dx dy switched, scan rot -90 degrees
-                                   cam_com(pattern_list,
-                                           well,
-                                           'X0{}--Y0{}'.format(j, i),
-                                           str(dy),
-                                           str(dx)
-                                           ) +
-                                   '\n')
-                            end_com = ['CAM',
-                                       well,
-                                       'E0' + str(first_job + 2),
-                                       'X0{}--Y0{}'.format(j, i)
-                                       ]
-    if fov_is:
-        # Store the last unstored commands in lists, after one well at least.
-        com_list.append(com)
-        end_com_list.append(end_com)
+
+    if stage4 and gain_file:
+        com_result = gen_com(gain_dict,
+                             template,
+                             job_list,
+                             pattern,
+                             first_job,
+                             coords=coords
+                             )
+        com_list = com_result['com']
+        end_com_list = com_result['end_com']
 
     if stage3 or stage4:
         for com, end_com in zip(com_list, end_com_list):
@@ -863,15 +755,63 @@ def main(argv):
             print(cstart)
             sock.send(cstart)
             time.sleep(3)
+            stage5 = True
             if stage3:
-                stage5 = True
                 img_saving = False
-                #sock.recv_timeout(40, end_com)
             if stage4:
-                stage5 = True
                 img_saving = True
             while stage5:
+                print('Waiting for images...')
                 reply = sock.recv_timeout(120, ['image--'])
+                if stage4 and not gain_file:
+                    gain_result = get_gain(reply,
+                                           imaging_dir,
+                                           last_field,
+                                           last_well,
+                                           stage4,
+                                           stop_com,
+                                           r_script,
+                                           initialgains_file,
+                                           begin,
+                                           gain_dict
+                                           )
+                    gain_dict = gain_result['gain_dict']
+                    saved_gains = saved_gains.update(gain_dict)
+                    stage4 = gain_result['stage']
+                    if not stage4:
+                        # Stop scan
+                        print(stop_cam_com)
+                        sock.send(stop_cam_com)
+                        time.sleep(3)
+                        print(stop_com)
+                        sock.send(stop_com)
+                        time.sleep(5)
+                        com_result = gen_com(gain_dict,
+                                             template,
+                                             job_list,
+                                             pattern,
+                                             first_job,
+                                             coords=coords
+                                             )
+                        com_list = com_result['com']
+                        end_com_list = com_result['end_com']
+                        for com in com_list:
+                            com = com
+                        for end_com in end_com_list:
+                            end_com = end_com
+                        print(com)
+                        sock.send(com)
+                        time.sleep(3)
+                        # Start scan.
+                        print(start_com)
+                        sock.send(start_com)
+                        time.sleep(3)
+                        # Start CAM scan.
+                        print(cstart)
+                        sock.send(cstart)
+                        time.sleep(3)
+                        print('Waiting for images...')
+                        reply = sock.recv_timeout(120, ['image--'])
                 for line in reply.splitlines():
                     # parse reply, check well (UV), job-order (E), field (XY),
                     # z slice (Z) and channel (C). Get field path.
@@ -907,7 +847,6 @@ def main(argv):
                                 print('No images yet... but maybe later?' , e)
                     if all(test in line for test in end_com):
                         stage5 = False
-            #time.sleep(3)
             # Stop scan
             print(stop_cam_com)
             sock.send(stop_cam_com)
@@ -915,6 +854,8 @@ def main(argv):
             print(stop_com)
             sock.send(stop_com)
             time.sleep(5)
+            if end_63x:
+                stage4 = True
 
     print('\nExperiment finished!')
 
