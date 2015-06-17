@@ -268,7 +268,7 @@ def gen_cam_com(com, pattern, well, fieldx, fieldy, enable, dx, dy):
            # dx dy switched, scan rot -90 degrees
            cam_com(pattern,
                    well,
-                   'X0{}--Y0{}'.format(fieldx, fieldx),
+                   'X0{}--Y0{}'.format(fieldx, fieldy),
                    str(dy),
                    str(dx)
                    ) +
@@ -279,7 +279,7 @@ def gen_com(gain_dict,
             template,
             job_list,
             pattern,
-            first_job
+            first_job,
             coords=None
             ):
     parsed = parse_gain(gain_dict, template=template)
@@ -500,7 +500,7 @@ def main(argv):
     end_40x = False
     end_63x = False
     gain_only = False
-    first_job = 2
+    first_job = 1
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage()
