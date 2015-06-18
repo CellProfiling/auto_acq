@@ -290,9 +290,9 @@ def gen_com(gain_dict,
     # Lists for storing command strings.
     com_list = []
     end_com_list = []
-    com = '/cli:1 /app:matrix /cmd:deletelist\n'
-    end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
     for gain, wells in green_sorted.iteritems():
+        com = '/cli:1 /app:matrix /cmd:deletelist\n'
+        end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
         channels = [gain,
                     medians['blue'],
                     medians['yellow'],
@@ -318,7 +318,15 @@ def gen_com(gain_dict,
                         enable = 'false'
                         fov_is = False
                     if fov_is:
-                        com = gen_cam_com(com, pattern, well, j, i, enable, dx, dy)
+                        com = gen_cam_com(com,
+                                          pattern,
+                                          well,
+                                          j,
+                                          i,
+                                          enable,
+                                          dx,
+                                          dy
+                                          )
                         end_com = ['CAM',
                                    well,
                                    'E0' + str(first_job + 2),
@@ -813,11 +821,6 @@ def main(argv):
                         print('Waiting for images...')
                         reply = sock.recv_timeout(120, ['image--'])
                 for line in reply.splitlines():
-                    # parse reply, check well (UV), job-order (E), field (XY),
-                    # z slice (Z) and channel (C). Get field path.
-                    # Get all image paths in field. Rename images.
-                    # Make a max proj per channel and field.
-                    # Save meta data and image max proj.
                     if 'image' in line:
                         error = True
                         count = 0
