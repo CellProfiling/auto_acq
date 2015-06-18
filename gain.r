@@ -58,7 +58,9 @@ for (i in 1:32) {
 	}
 	# Fit curve
 	sink("/dev/null")	# Suppress output
-	curv <- tryCatch(nls(bin2 ~ A*count2^B, start=list(A = 1000, B=-1), trace=T), warning=function(e) NULL, error=function(e) NULL)
+	curv <- tryCatch(nls(bin2 ~ A*count2^B, start=list(A = 1000, B=-1), trace=T),
+									 warning=function(e) NULL,
+									 error=function(e) NULL)
 	sink()
 	if (!is.null(curv)) {
 		# Plot curve
@@ -76,19 +78,22 @@ for (i in 1:32) {
 for (i in 1:(length(channels))) {
 	bins_c <- bins[[i]]
 	gains_c <- gains[[i]]
-	png(filename=paste(filebase, channel_name[channels[i]], "_gain.png", sep = ""))
+	png(filename=paste(filebase,
+										 channel_name[channels[i]],
+										 "_gain.png",
+										 sep = ""))
 	plot(bins_c, gains_c)
-	# Remove values not making a upward trend (Martin Hjelmare)
+	# Remove values not making an upward trend and above bin=600 (Martin Hjelmare)
 	point.connected <- 0
 	point.start <- 1
 	point.end <- 1
-	for (k in 1:(length(bins_c)-1)) {
-		for (l in (k+1):length(bins_c)) {
-			if(bins_c[l] >= bins_c[l-1]) {
-				if((l-k+1) > point.connected) {
-					point.connected <- l-k+1
-					point.start <- k
-					point.end <- l
+	for (m in 1:(length(bins_c)-1)) {
+		for (n in (m+1):length(bins_c)) {
+			if(bins_c[n] <= 600 & bins_c[n] >= bins_c[n-1]) {
+				if((n-m+1) > point.connected) {
+					point.connected <- n-m+1
+					point.start <- m
+					point.end <- n
 				}
 			}
 			else {
@@ -102,7 +107,11 @@ for (i in 1:(length(channels))) {
 	if (length(bins_c) >= 3) {
 		# Fit curve
 		sink("/dev/null")	# Suppress output
-		curv2 <- tryCatch(nls(gains_c ~ C*bins_c^D, start=list(C = 1, D=1), trace=T), warning=function(e) NULL, error=function(e) NULL)
+		curv2 <- tryCatch(nls(gains_c ~ C*bins_c^D,
+													start=list(C = 1, D=1),
+													trace=T),
+											warning=function(e) NULL,
+											error=function(e) NULL)
 		sink()
 		# Find function
 		if (!is.null(curv2)) {
