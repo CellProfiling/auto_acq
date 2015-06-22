@@ -59,7 +59,7 @@ dirChosen = getDirectory("Choose a Directory ");
 topDir = dirChosen;
 
 fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, ".+C00.ome.tif$", fileArray);
+fileArray = listFiles(dirChosen, topDir, ".+E01.+\\.tif$", fileArray);
 
 // Write existing coordinate file contents to new file.
 if (File.exists(topDir+"63x_coords.csv") == true) {
