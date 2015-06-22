@@ -167,23 +167,44 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
         z_slice = img.get_name('Z\d\d')
         channel = img.get_name('C\d\d')
         if job_ord_int == f_job:
-            new_name = os.path.normpath(os.path.join(path, well + '--' +
-                                        field + '--' + z_slice + '--' +
-                                        channel + '.ome.tif'))
+            new_name = os.path.normpath(os.path.join(path, (well + '--' +
+                                                            job_order'--' +
+                                                            field + '--' +
+                                                            z_slice + '--' +
+                                                            channel +
+                                                            '.ome.tif'
+                                                            )
+                                                     )
+                                        )
         elif job_ord_int == f_job + 1 and channel == 'C00':
-            new_name = os.path.normpath(os.path.join(path, well + '--' +
-                                        field + '--' + z_slice +
-                                        '--C01.ome.tif'))
+            new_name = os.path.normpath(os.path.join(path, (well + '--' +
+                                                            job_order + '--' +
+                                                            field + '--' +
+                                                            z_slice +
+                                                            '--C01.ome.tif'
+                                                            )
+                                                     )
+                                        )
             channel = 'C01'
         elif job_ord_int == f_job + 1 and channel == 'C01':
-            new_name = os.path.normpath(os.path.join(path, well + '--' +
-                                        field + '--' + z_slice +
-                                        '--C02.ome.tif'))
+            new_name = os.path.normpath(os.path.join(path, (well + '--' +
+                                                            job_order + '--' +
+                                                            field + '--' +
+                                                            z_slice +
+                                                            '--C02.ome.tif'
+                                                            )
+                                                     )
+                                        )
             channel = 'C02'
         elif job_ord_int == f_job + 2:
-            new_name = os.path.normpath(os.path.join(path, well + '--' +
-                                        field + '--' + z_slice +
-                                        '--C03.ome.tif'))
+            new_name = os.path.normpath(os.path.join(path, (well + '--' +
+                                                            job_order + '--' +
+                                                            field + '--' +
+                                                            z_slice +
+                                                            '--C03.ome.tif'
+                                                            )
+                                                     )
+                                        )
             channel = 'C03'
         else:
             new_name = img_path
