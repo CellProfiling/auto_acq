@@ -168,7 +168,7 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
         channel = img.get_name('C\d\d')
         if job_ord_int == f_job:
             new_name = os.path.normpath(os.path.join(path, (well + '--' +
-                                                            job_order'--' +
+                                                            job_order + '--' +
                                                             field + '--' +
                                                             z_slice + '--' +
                                                             channel +
@@ -208,7 +208,7 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
             channel = 'C03'
         else:
             new_name = img_path
-        if not len(img_array) == 16:
+        if not (len(img_array) == 16 or len(img_array) == 256):
             new_paths.append(new_name)
             metadata_d[well + '--' + field + '--' + channel] = img.meta_data()
         os.rename(img_path, new_name)
@@ -389,16 +389,17 @@ def run_r(filebases,
         print(r_output)
     return gain_dict
 
-def get_gain(reply,
+def get_gain(sock,
+             reply,
              imaging_dir,
              last_field,
-             last_well,
              stage,
              stop_com,
              r_script,
              initialgains_file,
              begin,
-             gain_dict
+             gain_dict,
+             last_well=None
              ):
     # empty lists for keeping csv file base path names
     # and corresponding well names
@@ -415,6 +416,8 @@ def get_gain(reply,
             img = File(root)
             img_name = img.get_name('image--.*.tif')
             well_name = img.get_name('U\d\d--V\d\d')
+            if last_well is None:
+                last_well = well_name
             field_name = img.get_name('X\d\d--Y\d\d')
             channel = img.get_name('C\d\d')
             field_path = img.get_dir()
@@ -424,7 +427,7 @@ def get_gain(reply,
                     stage = False
                     print(stop_com)
                     sock.send(stop_com)
-                    time.sleep(5)
+                    time.sleep(6)
                 if 'CAM' in well_path:
                     make_projs = True
                 else:
@@ -523,7 +526,7 @@ def main(argv):
     last_field = 'X01--Y01'
     template_file = None
     coord_file = None
-    gain_file = None
+    input_gain = None
     host = ''
     end_10x = False
     end_40x = False
@@ -551,7 +554,7 @@ def main(argv):
         elif opt in ('--host'):
             host = arg
         elif opt in ('--inputgain'):
-            gain_file = arg
+            input_gain = arg
         elif opt in ('--template'):
             template_file = arg
         elif opt in ('--10x'):
@@ -640,7 +643,7 @@ def main(argv):
     if gain_only:
         stage3 = False
         stage4 = False
-    if gain_file:
+    if input_gain:
         stage1 = False
     wells = []
     if template_file:
@@ -710,30 +713,31 @@ def main(argv):
             # Start scan.
             print(start_com)
             sock.send(start_com)
-            time.sleep(5)
+            time.sleep(7)
             # Start CAM scan.
             print(cstart)
             # Start CAM scan.
             sock.send(cstart)
             stage2 = False
         reply = sock.recv_timeout(40, ['image--'])
-        gain_result = get_gain(reply,
+        gain_result = get_gain(sock,
+                               reply,
                                imaging_dir,
                                last_field,
-                               last_well,
                                stage1,
                                stop_com,
                                r_script,
                                initialgains_file,
                                begin,
-                               gain_dict
+                               gain_dict,
+                               last_well=last_well
                                )
         begin = gain_result['begin']
         gain_dict = gain_result['gain_dict']
         stage1 = gain_result['stage']
 
-    if gain_file:
-        gain_dict = read_csv(gain_file,
+    if input_gain:
+        gain_dict = read_csv(input_gain,
                              'well',
                              ['green', 'blue', 'yellow', 'red']
                              )
@@ -759,7 +763,7 @@ def main(argv):
     if stage4:
         print('Stage4')
 
-    if stage4 and gain_file:
+    if stage4 and input_gain:
         com_result = gen_com(gain_dict,
                              template,
                              job_list,
@@ -770,7 +774,7 @@ def main(argv):
         com_list = com_result['com']
         end_com_list = com_result['end_com']
 
-    if stage3 or stage4:
+    if stage1 or stage3 or stage4:
         for com, end_com in zip(com_list, end_com_list):
             # Send gain change command to server in the four channels.
             # Send CAM list to server.
@@ -780,7 +784,7 @@ def main(argv):
             # Start scan.
             print(start_com)
             sock.send(start_com)
-            time.sleep(3)
+            time.sleep(7)
             # Start CAM scan.
             print(cstart)
             sock.send(cstart)
@@ -793,11 +797,12 @@ def main(argv):
             while stage5:
                 print('Waiting for images...')
                 reply = sock.recv_timeout(120, ['image--'])
-                if stage4 and not gain_file:
-                    gain_result = get_gain(reply,
+                if stage4 and not input_gain:
+                    print('Stage4 and not input_gain')
+                    gain_result = get_gain(sock,
+                                           reply,
                                            imaging_dir,
                                            last_field,
-                                           last_well,
                                            stage4,
                                            stop_com,
                                            r_script,
@@ -806,16 +811,19 @@ def main(argv):
                                            gain_dict
                                            )
                     gain_dict = gain_result['gain_dict']
-                    saved_gains = saved_gains.update(gain_dict)
+                    if saved_gains is None:
+                        saved_gains = gain_dict
+                    else:
+                        saved_gains = saved_gains.update(gain_dict)
                     stage4 = gain_result['stage']
                     if not stage4:
                         # Stop scan
-                        print(stop_cam_com)
-                        sock.send(stop_cam_com)
-                        time.sleep(3)
-                        print(stop_com)
-                        sock.send(stop_com)
-                        time.sleep(5)
+                        #print(stop_cam_com)
+                        #sock.send(stop_cam_com)
+                        #time.sleep(5)
+                        #print(stop_com)
+                        #sock.send(stop_com)
+                        #time.sleep(6)
                         com_result = gen_com(gain_dict,
                                              template,
                                              job_list,
@@ -823,62 +831,64 @@ def main(argv):
                                              first_job,
                                              coords=coords
                                              )
-                        com_list = com_result['com']
+                        com_list4 = com_result['com']
                         end_com_list = com_result['end_com']
-                        for com in com_list:
-                            com = com
+                        for com4 in com_list4:
+                            com4 = com4
                         for end_com in end_com_list:
                             end_com = end_com
-                        print(com)
-                        sock.send(com)
+                        print(com4)
+                        sock.send(com4)
                         time.sleep(3)
                         # Start scan.
                         print(start_com)
                         sock.send(start_com)
-                        time.sleep(3)
+                        time.sleep(7)
                         # Start CAM scan.
                         print(cstart)
                         sock.send(cstart)
                         time.sleep(3)
                         print('Waiting for images...')
                         reply = sock.recv_timeout(120, ['image--'])
-                for line in reply.splitlines():
-                    if 'image' in line:
-                        error = True
-                        count = 0
-                        while error and count < 2:
-                            try:
-                                root = parse_reply(line, imaging_dir)
-                                img = File(root)
-                                img_name = img.get_name('image--.*.tif')
-                                print(img_name)
-                                job_order = img.get_name('E\d\d')
-                                field_path = img.get_dir()
-                                get_imgs(field_path,
-                                         imaging_dir,
-                                         job_order,
-                                         f_job=first_job,
-                                         img_save=img_saving,
-                                         csv_save=False
-                                         )
-                                error = False
-                            except IndexError as e:
-                                print('No images yet... but maybe later?' , e)
-                                error = False
-                            except TypeError as e:
-                                error = True
-                                count += 1
-                                time.sleep(1)
-                                print('No images yet... but maybe later?' , e)
-                    if all(test in line for test in end_com):
-                        stage5 = False
+                if (not stage4) or (stage4 and input_gain):
+                    for line in reply.splitlines():
+                        if 'image' in line:
+                            error = True
+                            count = 0
+                            while error and count < 2:
+                                try:
+                                    root = parse_reply(line, imaging_dir)
+                                    img = File(root)
+                                    img_name = img.get_name('image--.*.tif')
+                                    print(img_name)
+                                    job_order = img.get_name('E\d\d')
+                                    field_path = img.get_dir()
+                                    print('Stage3 or Stage4 after gain')
+                                    get_imgs(field_path,
+                                             imaging_dir,
+                                             job_order,
+                                             f_job=first_job,
+                                             img_save=img_saving,
+                                             csv_save=False
+                                             )
+                                    error = False
+                                except IndexError as e:
+                                    print('No images yet... but maybe later?' , e)
+                                    error = False
+                                except TypeError as e:
+                                    error = True
+                                    count += 1
+                                    time.sleep(1)
+                                    print('No images yet... but maybe later?' , e)
+                        if all(test in line for test in end_com):
+                            stage5 = False
             # Stop scan
             print(stop_cam_com)
             sock.send(stop_cam_com)
-            time.sleep(3)
+            time.sleep(5)
             print(stop_com)
             sock.send(stop_com)
-            time.sleep(5)
+            time.sleep(6)
             if end_63x:
                 stage4 = True
 
