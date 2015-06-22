@@ -58,7 +58,7 @@ dirChosen = getDirectory("Choose a Directory ");
 topDir = dirChosen;
 
 fileArray = newArray();
-fileArray = listFiles(dirChosen, topDir, ".+E01.+\\.tif$", fileArray);
+fileArray = listFiles(dirChosen, topDir, ".+C00.+\\.tif$", fileArray);
 
 // Write existing coordinate file contents to new file.
 if (File.exists(topDir+"63x_coords.csv") == true) {
@@ -143,26 +143,27 @@ for (j = 0; j < fileArray.length; j++) {
 			    open(imageChannel);
 			    makeRectangle(roiX[0], roiY[0], round(width*164/387.5), round(width*164/387.5));
 			    run("Crop");
-			    saveAs("Tiff", ""+replace(imageChannel, ".png", "_cropped.tif"));
+			    saveAs("Tiff", ""+replace(imageChannel, ".tif", "_cropped.tif"));
 			    close();
-			    err=File.rename(replace(imageChannel, ".png", "_cropped.tif"), replace(imageChannel, ".png", "_cropped.tif")+".bak");
+			    err=File.rename(replace(imageChannel, ".tif", "_cropped.tif"), replace(imageChannel, ".tif", "_cropped.tif")+".bak");
 			    //err=File.rename(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), "image--.+", "/cropped/"+replace(replace(imageChannel, ".ome.tif", "_cropped.ome.tif"), ".+image--", "image--")));
 		    }
 
 		    // A half 63x zoom 1.5 image is ~433 px on a 40x zoom 1 image.
-		    // 0.1892 um/px for 40x zoom 1. 0.0801 um/px for 63x zoom 1.5.
+		    // 0.1892 um/px for 40x zoom 1. 6.05 um/px for 10x zoom 1, 1550 um/256 px image,
+		    // which is the selected dummy job settings.
     		// Difference in XY after changing from 40x to 63x oil objective
 	    	// in Y is +17.0 um (90 px for 40x zoom 1) on the image, or -17.0 um
 	    	// on the table. Don't need to correct for that if start coordinates are
-	    	// synced instead.
+	    	// synced instead. Using image rotation -90 degrees, flips X and Y axes
 
             //pixels in a 63x zoom 1.5 image
-	    	dxPx = round((1024 - roiX[0] - 433) * (0.1892/0.0801));
-	    	dyPx = round((1024 - roiY[0] - 433) * (0.1892/0.0801));
+	    	dxPx = round((1024 - roiX[0] - 433) * (0.1892/6.05));
+	    	dyPx = round((1024 - roiY[0] - 433) * (0.1892/6.05));
 		
 	    	//m
-	    	dxM = (dxPx * 0.0801)/1000000;
-	    	dyM = (dyPx * 0.0801)/1000000;
+	    	dxM = (dxPx * 6.05)/1000000;
+	    	dyM = (dyPx * 6.05)/1000000;
 
 	    	//Testing
 	    	print("xWell: "+xWell);
