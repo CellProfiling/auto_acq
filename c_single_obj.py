@@ -599,7 +599,7 @@ def main(argv):
 
     pattern_g = pattern_g_10x
 
-    # Lists for storing command strings.
+    # Lists and strings for storing command strings.
     com_list = []
     end_com_list = []
     com = '/cli:1 /app:matrix /cmd:deletelist\n'
@@ -669,6 +669,7 @@ def main(argv):
 
     com = ''.join(com_list)
 
+    # commands
     start_com = '/cli:1 /app:matrix /cmd:startscan\n'
     stop_com = '/cli:1 /app:matrix /cmd:stopscan\n'
     stop_cam_com = '/cli:1 /app:matrix /cmd:stopcamscan\n'
