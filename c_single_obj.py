@@ -309,8 +309,8 @@ def gen_com(gain_dict,
     com_list = []
     end_com_list = []
     for gain, wells in green_sorted.iteritems():
-        com = '/cli:1 /app:matrix /cmd:deletelist\n'
-        end_com = ['/cli:1 /app:matrix /cmd:deletelist\n']
+        com = ''
+        end_com = []
         channels = [gain,
                     medians['blue'],
                     medians['yellow'],
@@ -386,8 +386,7 @@ def run_r(filebases,
         print(r_output)
     return gain_dict
 
-def get_gain(sock,
-             reply,
+def get_gain(line,
              imaging_dir,
              last_field,
              r_script,
@@ -398,35 +397,34 @@ def get_gain(sock,
     # and corresponding well names
     filebases = []
     fin_wells = []
-    for line in reply.splitlines():
-        # Parse reply, check well (UV), field (XY).
-        # Get well path.
-        # Get all image paths in well.
-        # Make a max proj per channel and well.
-        # Save meta data and image max proj.
-        if 'image' in line:
-            root = parse_reply(line, imaging_dir)
-            img = File(root)
-            img_name = img.get_name('image--.*.tif')
-            field_name = img.get_name('X\d\d--Y\d\d')
-            channel = img.get_name('C\d\d')
-            field_path = img.get_dir()
-            well_path = Directory(field_path).get_dir()
-            if (field_name == last_field and channel == 'C31'):
-                ptime = time.time()
-                get_imgs(well_path,
-                         well_path,
-                         'E02',
-                         img_save=False
-                         )
-                print(str(time.time()-ptime) + ' secs')
-                # get all CSVs and wells
-                csv_result = get_csvs(well_path,
-                                      filebases,
-                                      fin_wells,
-                                      )
-                filebases = csv_result['bases']
-                fin_wells = csv_result['wells']
+    # Parse reply, check well (UV), field (XY).
+    # Get well path.
+    # Get all image paths in well.
+    # Make a max proj per channel and well.
+    # Save meta data and image max proj.
+    if 'image' in line:
+        root = parse_reply(line, imaging_dir)
+        img = File(root)
+        img_name = img.get_name('image--.*.tif')
+        field_name = img.get_name('X\d\d--Y\d\d')
+        channel = img.get_name('C\d\d')
+        field_path = img.get_dir()
+        well_path = Directory(field_path).get_dir()
+        if (field_name == last_field and channel == 'C31'):
+            ptime = time.time()
+            get_imgs(well_path,
+                     well_path,
+                     'E02',
+                     img_save=False
+                     )
+            print(str(time.time()-ptime) + ' secs')
+            # get all CSVs and wells
+            csv_result = get_csvs(well_path,
+                                  filebases,
+                                  fin_wells,
+                                  )
+            filebases = csv_result['bases']
+            fin_wells = csv_result['wells']
 
     # For all experiment wells imaged so far, run R script
     if filebases:
@@ -437,8 +435,7 @@ def get_gain(sock,
                           initialgains_file,
                           gain_dict
                           )
-    return {'gain_dict': gain_dict
-            }
+    return gain_dict
 
 def parse_gain(gain_dict, template=None):
     green_sorted = defaultdict(list)
@@ -582,7 +579,7 @@ def main(argv):
     # Lists and strings for storing command strings.
     com_list = []
     end_com_list = []
-    com = '/cli:1 /app:matrix /cmd:deletelist\n'
+    com = ''
     end_com = []
 
     # Booleans to control flow.
@@ -689,17 +686,8 @@ def main(argv):
         com_list = com_result['com']
         end_com_list = com_result['end_com']
 
-    if stage3:
-        print('Stage3')
-
-    if stage4:
-        print('Stage4')
-
     if stage1 or stage3 or stage4:
-        send_com(stage1,
-                 stage3,
-                 stage4,
-                 com_list,
+        send_com(com_list,
                  end_com_list,
                  sock,
                  start_com,
@@ -711,15 +699,15 @@ def main(argv):
                  pattern,
                  first_job,
                  coords,
-                 input_gain
+                 input_gain,
+                 stage1=stage1,
+                 stage3=stage3,
+                 stage4=stage4
                  )
 
     print('\nExperiment finished!')
 
-def send_com(stage1,
-             stage3,
-             stage4,
-             com_list,
+def send_com(com_list,
              end_com_list,
              sock,
              start_com,
@@ -731,11 +719,15 @@ def send_com(stage1,
              pattern,
              first_job,
              coords,
-             input_gain
+             input_gain,
+             stage1=None,
+             stage3=None,
+             stage4=None
              ):
     for com, end_com in zip(com_list, end_com_list):
         # Send gain change command to server in the four channels.
         # Send CAM list to server.
+        com = '/cli:1 /app:matrix /cmd:deletelist\n' + com
         print(com)
         sock.send(com)
         time.sleep(3)
@@ -748,36 +740,29 @@ def send_com(stage1,
         sock.send(cstart)
         time.sleep(3)
         stage5 = True
-        if stage3:
-            img_saving = False
-        if stage4:
-            img_saving = True
         while stage5:
             print('Waiting for images...')
             reply = sock.recv_timeout(120, ['image--'])
-            if stage1:
-                print('Stage1')
-                gain_result = get_gain(sock,
-                                       reply,
-                                       imaging_dir,
-                                       last_field,
-                                       r_script,
-                                       initialgains_file,
-                                       gain_dict
-                                       )
-                gain_dict = gain_result['gain_dict']
-                if saved_gains is None:
-                    saved_gains = gain_dict
-                else:
-                    saved_gains = saved_gains.update(gain_dict)
-                header = ['well', 'green', 'blue', 'yellow', 'red']
-                csv_name = 'output_gains.csv'
-                write_csv(os.path.normpath(os.path.join(imaging_dir, csv_name)),
-                          saved_gains,
-                          header
-                          )
-                if gain_dict and (stage3 or stage4) and not input_gain:
-                    stage1 = False
+            for line in reply.splitlines():
+                if stage1:
+                    print('Stage1')
+                    gain_dict = get_gain(line,
+                                         imaging_dir,
+                                         last_field,
+                                         r_script,
+                                         initialgains_file,
+                                         gain_dict
+                                         )
+                    if saved_gains is None:
+                        saved_gains = gain_dict
+                    else:
+                        saved_gains = saved_gains.update(gain_dict)
+                    header = ['well', 'green', 'blue', 'yellow', 'red']
+                    csv_name = 'output_gains.csv'
+                    write_csv(os.path.normpath(os.path.join(imaging_dir, csv_name)),
+                              saved_gains,
+                              header
+                              )
                     com_result = gen_com(gain_dict,
                                          template,
                                          job_list,
@@ -787,28 +772,13 @@ def send_com(stage1,
                                          )
                     late_com_list = com_result['com']
                     late_end_com_list = com_result['end_com']
-                    send_com(stage1,
-                             stage3,
-                             stage4,
-                             late_com_list,
-                             late_end_com_list,
-                             sock,
-                             start_com,
-                             cstart,
-                             imaging_dir,
-                             last_field,
-                             template,
-                             job_list,
-                             pattern,
-                             first_job,
-                             coords,
-                             input_gain
-                             )
-
-                print('Waiting for images...')
-                reply = sock.recv_timeout(120, ['image--'])
-            if (not stage4) or (stage4 and input_gain):
-                for line in reply.splitlines():
+                else:
+                    if stage3:
+                        print('Stage3')
+                        img_saving = False
+                    if stage4:
+                        print('Stage4')
+                        img_saving = True
                     if 'image' in line:
                         error = True
                         count = 0
@@ -833,8 +803,8 @@ def send_com(stage1,
                                 count += 1
                                 time.sleep(1)
                                 print('No images yet... but maybe later?' , e)
-                    if all(test in line for test in end_com):
-                        stage5 = False
+                if all(test in line for test in end_com):
+                    stage5 = False
         # Stop scan
         print(stop_cam_com)
         sock.send(stop_cam_com)
@@ -842,6 +812,24 @@ def send_com(stage1,
         print(stop_com)
         sock.send(stop_com)
         time.sleep(6)
+        if gain_dict and stage1 and not input_gain:
+            send_com(late_com_list,
+                     late_end_com_list,
+                     sock,
+                     start_com,
+                     cstart,
+                     imaging_dir,
+                     last_field,
+                     template,
+                     job_list,
+                     pattern,
+                     first_job,
+                     coords,
+                     input_gain,
+                     stage1=False,
+                     stage3=stage3,
+                     stage4=stage4
+                     )
 
 if __name__ =='__main__':
     main(sys.argv[1:])
