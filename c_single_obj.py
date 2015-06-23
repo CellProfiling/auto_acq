@@ -110,20 +110,20 @@ def process_output(well, output, dict_list):
 
 def read_csv(path, index, header):
     """Read a csv file and return a defaultdict of lists."""
-    dict = defaultdict(list)
+    dict_list = defaultdict(list)
     with open(path) as f:
         reader = csv.DictReader(f)
         for d in reader:
             for key in header:
-                dict[d[index]].append(d[key])
-    return dict
+                dict_list[d[index]].append(d[key])
+    return dict_list
 
-def write_csv(path, dict, header):
+def write_csv(path, d, header):
     """Function to write a defaultdict of lists as a csv file."""
     with open(path, 'wb') as f:
         writer = csv.writer(f)
         writer.writerow(header)
-        for key, value in dict.iteritems():
+        for key, value in d.iteritems():
             writer.writerow([key] + value)
 
 def make_proj(img_list):
@@ -567,8 +567,7 @@ def main(argv):
     pattern_10x = 'pattern10'
     job_40x = ['job7', 'job8', 'job9']
     pattern_40x = 'pattern2'
-    job_63x = ['job10', 'job11', 'job12', 'job13', 'job14', 'job15',
-               'job16', 'job17', 'job18', 'job19', 'job20', 'job21']
+    job_63x = ['job10', 'job11', 'job12']
     pattern_63x = 'pattern3'
     job_dummy_10x = 'dummy10x'
     pattern_dummy_10x = 'pdummy10x'
@@ -606,7 +605,6 @@ def main(argv):
     else:
         coords = None
     if end_63x:
-        stage1 = False
         end_10x = False
         end_40x = False
         stage3 = False
@@ -692,8 +690,14 @@ def main(argv):
                  sock,
                  start_com,
                  cstart,
+                 stop_cam_com,
+                 stop_com,
                  imaging_dir,
                  last_field,
+                 r_script,
+                 initialgains_file,
+                 gain_dict,
+                 saved_gains,
                  template,
                  job_list,
                  pattern,
@@ -712,8 +716,14 @@ def send_com(com_list,
              sock,
              start_com,
              cstart,
+             stop_cam_com,
+             stop_com,
              imaging_dir,
              last_field,
+             r_script,
+             initialgains_file,
+             gain_dict,
+             saved_gains,
              template,
              job_list,
              pattern,
@@ -753,25 +763,30 @@ def send_com(com_list,
                                          initialgains_file,
                                          gain_dict
                                          )
-                    if saved_gains is None:
+                    print(gain_dict) #testing
+                    if not saved_gains:
                         saved_gains = gain_dict
-                    else:
-                        saved_gains = saved_gains.update(gain_dict)
-                    header = ['well', 'green', 'blue', 'yellow', 'red']
-                    csv_name = 'output_gains.csv'
-                    write_csv(os.path.normpath(os.path.join(imaging_dir, csv_name)),
-                              saved_gains,
-                              header
-                              )
-                    com_result = gen_com(gain_dict,
-                                         template,
-                                         job_list,
-                                         pattern,
-                                         first_job,
-                                         coords=coords
-                                         )
-                    late_com_list = com_result['com']
-                    late_end_com_list = com_result['end_com']
+                    if saved_gains:
+                        print(saved_gains) #testing
+                        saved_gains.update(gain_dict)
+                        header = ['well', 'green', 'blue', 'yellow', 'red']
+                        csv_name = 'output_gains.csv'
+                        write_csv(os.path.normpath(os.path.join(imaging_dir,
+                                                                csv_name
+                                                                )
+                                                   ),
+                                  saved_gains,
+                                  header
+                                  )
+                        com_result = gen_com(gain_dict,
+                                             template,
+                                             job_list,
+                                             pattern,
+                                             first_job,
+                                             coords=coords
+                                             )
+                        late_com_list = com_result['com']
+                        late_end_com_list = com_result['end_com']
                 else:
                     if stage3:
                         print('Stage3')
@@ -818,8 +833,14 @@ def send_com(com_list,
                      sock,
                      start_com,
                      cstart,
+                     stop_cam_com,
+                     stop_com,
                      imaging_dir,
                      last_field,
+                     r_script,
+                     initialgains_file,
+                     gain_dict,
+                     saved_gains,
                      template,
                      job_list,
                      pattern,
