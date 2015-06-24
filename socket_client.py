@@ -103,6 +103,8 @@ class Client(object):
                 print 'sending "%s"' % line
                 self.sock.send(line)
                 self.recv_timeout(20, line[:-2])
+                if '/cli:1 /app:matrix /cmd:stopscan' in line:
+                    self.recv_timeout(20, 'scanfinished')
                 time.sleep(0.3)
 
         except socket.error:
