@@ -104,23 +104,23 @@ for (i in 1:(length(channels))) {
 		}
 		bins_c <- bins_c[point.start:point.end]
 		gains_c <- gains_c[point.start:point.end]
-		gain[[i]] <- round(initialgains[channels[i]])
-		if (length(bins_c) >= 3) {
-			# Fit curve
-			sink("/dev/null")	# Suppress output
-			curv2 <- tryCatch(nls(gains_c ~ C*bins_c^D,
-														start=list(C = 1, D=1),
-														trace=T),
-												warning=function(e) NULL,
-												error=function(e) NULL)
-			sink()
-			# Find function
-			if (!is.null(curv2)) {
-				func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
-				lines(bins_c, fitted.values(curv2), lwd=2, col="green")
-				abline(v=binmax)
-				gain[[i]] <- round(min(func2(binmax), gain[[i]]))
-			}
+	}
+	gain[[i]] <- round(initialgains[channels[i]])
+	if (length(bins_c) >= 3) {
+		# Fit curve
+		sink("/dev/null")	# Suppress output
+		curv2 <- tryCatch(nls(gains_c ~ C*bins_c^D,
+													start=list(C = 1, D=1),
+													trace=T),
+											warning=function(e) NULL,
+											error=function(e) NULL)
+		sink()
+		# Find function
+		if (!is.null(curv2)) {
+			func2 <- function(val, A=coef(curv2)[1], B=coef(curv2)[2]) {A*val^B}
+			lines(bins_c, fitted.values(curv2), lwd=2, col="green")
+			abline(v=binmax)
+			gain[[i]] <- round(min(func2(binmax), gain[[i]]))
 		}
 	}
 	dev.off()
