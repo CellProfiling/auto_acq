@@ -221,7 +221,7 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
         if img_save:
             ptime = time.time()
             p = os.path.normpath(os.path.join(new_dir, 'image--' + well + '--' +
-                                 field + '--' + channel + '.tif'))
+                                 field + '--' + channel + '.ome.tif'))
             metadata = metadata_d[well + '--' + field + '--' + channel]
             File(p).save_image(proj, metadata)
             print('Save image:' + str(time.time()-ptime) + ' secs')
