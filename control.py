@@ -301,7 +301,7 @@ def gen_com(gain_dict,
             end_63x,
             coords=None
             ):
-    parsed = parse_gain(gain_dict, template=template, end_63x)
+    parsed = parse_gain(gain_dict, end_63x, template=template)
     green_sorted = parsed['green']
     medians = parsed['medians']
     dx = 0
@@ -443,7 +443,7 @@ def get_gain(line,
                           )
     return gain_dict
 
-def parse_gain(gain_dict, template=None, end_63x):
+def parse_gain(gain_dict, end_63x, template=None):
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
     for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
