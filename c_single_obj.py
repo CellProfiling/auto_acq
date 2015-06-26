@@ -298,9 +298,10 @@ def gen_com(gain_dict,
             job_list,
             pattern,
             first_job,
+            end_63x,
             coords=None
             ):
-    parsed = parse_gain(gain_dict, template=template)
+    parsed = parse_gain(gain_dict, template=template, end_63x)
     green_sorted = parsed['green']
     medians = parsed['medians']
     dx = 0
@@ -442,7 +443,7 @@ def get_gain(line,
                           )
     return gain_dict
 
-def parse_gain(gain_dict, template=None):
+def parse_gain(gain_dict, template=None, end_63x):
     green_sorted = defaultdict(list)
     medians = defaultdict(int)
     for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
@@ -452,7 +453,10 @@ def parse_gain(gain_dict, template=None):
             # value is a list with a gain value for each channel.
             if c == 'green':
                 # Round gain values to multiples of 10 in green channel
-                green_val = int(round(int(v[i]), -1))
+                if end_63x:
+                    green_val = int(min(round(int(v[i]), -1), 800))
+                else:
+                    green_val = int(round(int(v[i]), -1))
                 if template:
                     for well in template[k]:
                         green_sorted[green_val].append(well)
@@ -542,6 +546,7 @@ def send_com(com_list,
                                              job_list,
                                              pattern,
                                              first_job,
+                                             end_63x,
                                              coords=coords
                                              )
                         late_com_list = com_result['com']
@@ -646,7 +651,7 @@ def main(argv):
     std_well = 'U00--V00'
     initialgains_file = os.path.normpath(os.path.join(working_dir,
                                                             '10x_gain.csv'))
-    last_well = 'U00--V00'
+    last_well = 'U11--V07'
     last_field = 'X01--Y01'
     template_file = None
     coord_file = None
@@ -831,6 +836,7 @@ def main(argv):
                              job_list,
                              pattern,
                              first_job,
+                             end_63x,
                              coords=coords
                              )
         com_list = com_result['com']
