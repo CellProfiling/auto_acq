@@ -29,7 +29,7 @@ def usage():
     --finfield=<field>          : set final field
     --coords=<file>             : set 63x coordinates file
     --host=<ip>                 : set host ip address
-    --inputgain=<file>          : set second calculated gains file
+    --inputgain=<file>          : set calculated gains file
     --template=<file>           : set template layout file
     --10x                       : set 10x objective as final objective
     --40x                       : set 40x objective as final objective
