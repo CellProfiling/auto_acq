@@ -9,9 +9,9 @@ import numpy as np
 from scipy.ndimage.measurements import histogram
 from collections import OrderedDict
 from collections import defaultdict
-from control_class import Base
-from control_class import Directory
-from control_class import File
+from image import Base
+from image import Directory
+from image import File
 from socket_client import Client
 
 def usage():
