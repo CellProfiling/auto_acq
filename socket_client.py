@@ -77,7 +77,7 @@ class Client(object):
             self.sock.connect(server_address)
 
             # Receive welcome reply from server
-            self.recv_timeout(3, 'Welcome')
+            self.recv_timeout(3, ['Welcome'])
 
         except socket.error:
             print 'Failed to connect to socket.'
@@ -102,9 +102,9 @@ class Client(object):
                     line = line + '\r\n'
                 print 'sending "%s"' % line
                 self.sock.send(line)
-                self.recv_timeout(20, line[:-2])
-                if '/cli:1 /app:matrix /cmd:stopscan' in line:
-                    self.recv_timeout(20, 'scanfinished')
+                self.recv_timeout(20, [line[:-2]])
+                if 'stopscan' in line:
+                    self.recv_timeout(20, ['scanfinished'])
                 time.sleep(0.3)
 
         except socket.error:
