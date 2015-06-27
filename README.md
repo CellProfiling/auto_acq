@@ -59,9 +59,9 @@ Usage
 
 Run program with:
 
-    ```bash
-    python control.py -i <dir> [options]
-    ```
+```bash
+python control.py -i <dir> [options]
+```
 
 [issues-image]: http://img.shields.io/github/issues/MartinHjelmare/auto_acq.svg
 [issues]: https://github.com/MartinHjelmare/auto_acq/issues
