@@ -20,6 +20,7 @@ Prerequisites
 
 Installation
 ------------
+
 1. Change into the location where you want to put the project folder.
 
 ```bash
@@ -41,7 +42,7 @@ python control.py -h
 Upgrading
 ---------
 
-1. Change into the repository location cloned into during installation.
+1. Change into the repository location cloned during installation.
 
 ```bash
 cd ~/path/to/location/auto-acq/
