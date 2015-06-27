@@ -23,9 +23,9 @@ Installation
 
 1. Change into the location where you want to put the project folder.
 
-    bash
+    ```bash
     cd ~/path/to/location/
-    
+    ```
 
 2. Clone the repository.
 
@@ -43,22 +43,25 @@ Upgrading
 ---------
 
 1. Change into the repository location cloned during installation.
-```bash
-cd ~/path/to/location/auto-acq/
-```
+
+    ```bash
+    cd ~/path/to/location/auto-acq/
+    ```
+
 2. Update the repository to the latest version.
-```bash
-git pull --rebase
-```
+
+    ```bash
+    git pull --rebase
+    ```
 
 Usage
 -----
 
 Run program with:
 
-```bash
-python control.py -i <dir> [options]
-```
+    ```bash
+    python control.py -i <dir> [options]
+    ```
 
 [issues-image]: http://img.shields.io/github/issues/MartinHjelmare/auto_acq.svg
 [issues]: https://github.com/MartinHjelmare/auto_acq/issues
