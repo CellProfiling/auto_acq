@@ -23,21 +23,21 @@ Installation
 
 1. Change into the location where you want to put the project folder.
 
-```bash
-cd ~/path/to/location/
-```
+    ```bash
+    cd ~/path/to/location/
+    ```
 
 2. Clone the repository.
 
-```bash
-git clone git@github.com:MartinHjelmare/auto_acq.git
-```
+    ```bash
+    git clone git@github.com:MartinHjelmare/auto_acq.git
+    ```
 
 3. Test the program by running it with the -h option to see the usage info.
 
-```bash
-python control.py -h
-```
+    ```bash
+    python control.py -h
+    ```
 
 Upgrading
 ---------
