@@ -23,9 +23,9 @@ Installation
 
 1. Change into the location where you want to put the project folder.
 
-    ```bash
+    bash
     cd ~/path/to/location/
-    ```
+    
 
 2. Clone the repository.
 
