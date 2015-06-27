@@ -12,6 +12,7 @@ computer program that connects to the CAM server.
 Prerequisites
 -------------
 
+- git
 - Python 2.7
 - Numpy
 - Scipy
