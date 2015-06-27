@@ -43,17 +43,13 @@ Upgrading
 ---------
 
 1. Change into the repository location cloned during installation.
-
 ```bash
 cd ~/path/to/location/auto-acq/
 ```
-
 2. Update the repository to the latest version.
-
 ```bash
 git pull --rebase
 ```
-
 
 Usage
 -----
