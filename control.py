@@ -727,8 +727,9 @@ def main(argv):
     job_dummy_10x = 'dummy10x'
     pattern_dummy_10x = 'pdummy10x'
     pattern_dummy_40x = 'pdummy40x'
-
+    pattern = ''
     pattern_g = pattern_g_10x
+    job_list = []
 
     # Lists and strings for storing command strings.
     com_list = []
