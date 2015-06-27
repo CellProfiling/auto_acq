@@ -13,8 +13,8 @@ Prerequisites
 -------------
 
 - Python 2.7
+- Numpy
 - Scipy
-- Numpy (should be installed when installing Scipy)
 - Tifffile
 - Pillow
 
