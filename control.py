@@ -292,24 +292,6 @@ def set_gain(com, channels, job_list):
     return com
 
 
-def gen_cam_com(com, pattern, well, fieldx, fieldy, enable, dx, dy):
-    com = (com +
-           # enable_com(well,
-           #          'X0{}--Y0{}'.format(fieldx, fieldy),
-           #          enable
-           #          ) +
-           #'\n' +
-           # dx dy switched, scan rot -90 degrees
-           cam_com(pattern,
-                   well,
-                   'X0{}--Y0{}'.format(fieldx, fieldy),
-                   str(dy),
-                   str(dx)
-                   ) +
-           '\n')
-    return com
-
-
 def gen_com(gain_dict,
             template,
             job_list,
@@ -340,29 +322,23 @@ def gen_com(gain_dict,
         for well in sorted(wells):
             for i in range(2):
                 for j in range(2):
-                    # Only enable selected wells from file (arg)
+                    # Only add selected fovs from file (arg) to cam list
                     fov = '{}--X0{}--Y0{}'.format(well, j, i)
                     if fov in coords.keys():
-                        enable = 'true'
                         dx = coords[fov][0]
                         dy = coords[fov][1]
                         fov_is = True
                     elif not coords:
-                        enable = 'true'
                         fov_is = True
                     else:
-                        enable = 'false'
                         fov_is = False
                     if fov_is:
-                        com = gen_cam_com(com,
-                                          pattern,
-                                          well,
-                                          j,
-                                          i,
-                                          enable,
-                                          dx,
-                                          dy
-                                          )
+                        com = com + cam_com(pattern,
+                                            well,
+                                            'X0{}--Y0{}'.format(j, i),
+                                            dx,
+                                            dy
+                                            )
                         end_com = ['CAM',
                                    well,
                                    'E0' + str(first_job + 2),
@@ -803,7 +779,8 @@ def main(argv):
     # Selected objective gain job cam command in wells.
     for well in wells:
         for i in range(2):
-            com = gen_cam_com(com, pattern_g, well, i, i, 'true', 0, 0)
+            com = com + \
+                cam_com(pattern_g, well, 'X0{}--Y0{}'.format(i, i), '0', '0')
             end_com = ['CAM',
                        well,
                        'E0' + str(2),
