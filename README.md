@@ -28,31 +28,18 @@ Installation
     cd ~/path/to/location/
     ```
 
-2. Clone the repository.
+2. Download and extract the lastest release.
 
     ```bash
-    git clone git@github.com:MartinHjelmare/auto_acq.git
+    wget https://github.com/MartinHjelmare/auto_acq/archive/v0.1.0-alpha.tar.gz
+    tar -zxvf v0.1.0-alpha.tar.gz
     ```
 
 3. Test the program by running it with the -h option to see the usage info.
 
     ```bash
+    cd auto_acq-0.1.0-alpha
     python control.py -h
-    ```
-
-Upgrading
----------
-
-1. Change into the repository location cloned during installation.
-
-    ```bash
-    cd ~/path/to/location/auto-acq/
-    ```
-
-2. Update the repository to the latest version.
-
-    ```bash
-    git pull --rebase
     ```
 
 Usage
