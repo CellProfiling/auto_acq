@@ -14,16 +14,16 @@ from image import Directory
 from image import File
 from socket_client import Client
 
+
 def usage():
     """Usage function to help user start the script"""
 
-    print("""Usage: """+sys.argv[0]+""" -i <dir> [options]
+    print("""Usage: """ + sys.argv[0] + """ -i <dir> [options]
 
     Options and arguments:
     -h, --help                  : show the usage information
     -i <dir>, --input=<dir>     : set imaging directory
     --wdir=<dir>                : set working directory
-    --std=<well>                : set standard well
     --gainfile=<file>           : set initial gains file
     --finwell=<well>            : set final well
     --finfield=<field>          : set final field
@@ -36,6 +36,7 @@ def usage():
     --63x                       : set 63x objective as final objective
     --uvaf                      : use UV laser for AF jobs
     --gain                      : stop script after gain scanning""")
+
 
 def camstart_com(_afjob=None, _afr=None, _afs=None):
     """Returns a cam command to start the cam scan with selected AF job
@@ -58,6 +59,7 @@ def camstart_com(_afjob=None, _afr=None, _afs=None):
             ' /repeattime:36000' + afj + afr + afs)
     return _com
 
+
 def gain_com(_job, _pmt, _gain):
     """Returns a cam command for changing the pmt gain in a job."""
 
@@ -66,15 +68,18 @@ def gain_com(_job, _pmt, _gain):
             )
     return _com
 
+
 def get_wfx(_compartment):
     """Returns a string representing the well or field X coordinate."""
 
-    return str(int(re.sub(r'\D', '', re.sub('--.\d\d', '', _compartment)))+1)
+    return str(int(re.sub(r'\D', '', re.sub('--.\d\d', '', _compartment))) + 1)
+
 
 def get_wfy(_compartment):
     """Returns a string representing the well or field Y coordinate."""
 
-    return str(int(re.sub(r'\D', '', re.sub('.\d\d--', '', _compartment)))+1)
+    return str(int(re.sub(r'\D', '', re.sub('.\d\d--', '', _compartment))) + 1)
+
 
 def enable_com(_well, _field, enable):
     """Returns a cam command to enable a field in a well."""
@@ -87,6 +92,7 @@ def enable_com(_well, _field, enable):
             ' /welly:' + welly + ' /fieldx:' + fieldx + ' /fieldy:' + fieldy +
             ' /value:' + enable)
     return _com
+
 
 def cam_com(_job, _well, _field, _dx, _dy):
     """Returns a cam command to add a field to the cam list."""
@@ -102,11 +108,13 @@ def cam_com(_job, _well, _field, _dx, _dy):
             )
     return _com
 
+
 def process_output(well, output, dict_list):
     """Function to process output from the R scripts."""
     for c in output.split():
         dict_list[well].append(c)
     return dict_list
+
 
 def read_csv(path, index, header):
     """Read a csv file and return a defaultdict of lists."""
@@ -118,6 +126,7 @@ def read_csv(path, index, header):
                 dict_list[d[index]].append(d[key])
     return dict_list
 
+
 def write_csv(path, d, header):
     """Function to write a defaultdict of lists as a csv file."""
     with open(path, 'wb') as f:
@@ -125,6 +134,7 @@ def write_csv(path, d, header):
         writer.writerow(header)
         for key, value in d.iteritems():
             writer.writerow([key] + value)
+
 
 def make_proj(img_list):
     """Function to make a dict of max projections from a list of paths
@@ -139,8 +149,9 @@ def make_proj(img_list):
         channel = img.get_name('C\d\d')
         sorted_images[channel].append(img.read_image())
         max_imgs[channel] = np.maximum.reduce(sorted_images[channel])
-    print('Max proj:' + str(time.time()-ptime) + ' secs')
+    print('Max proj:' + str(time.time() - ptime) + ' secs')
     return max_imgs
+
 
 def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
     """Function to handle the acquired images, do renaming,
@@ -220,11 +231,12 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
     for channel, proj in max_projs.iteritems():
         if img_save:
             ptime = time.time()
-            p = os.path.normpath(os.path.join(new_dir, 'image--' + well + '--' +
-                                 field + '--' + channel + '.ome.tif'))
+            p = os.path.normpath(os.path.join(new_dir, 'image--' + well +
+                                              '--' + field + '--' + channel +
+                                              '.ome.tif'))
             metadata = metadata_d[well + '--' + field + '--' + channel]
             File(p).save_image(proj, metadata)
-            print('Save image:' + str(time.time()-ptime) + ' secs')
+            print('Save image:' + str(time.time() - ptime) + ' secs')
         if csv_save:
             ptime = time.time()
             if proj.dtype.name == 'uint8':
@@ -236,10 +248,11 @@ def get_imgs(path, imdir, job_order, f_job=None, img_save=None, csv_save=None):
             for b, count in enumerate(histo):
                 rows[b].append(count)
             p = os.path.normpath(os.path.join(new_dir, well + '--' + channel +
-                                 '.ome.csv'))
+                                              '.ome.csv'))
             write_csv(p, rows, ['bin', 'count'])
-            print('Save csv:' + str(time.time()-ptime) + ' secs')
+            print('Save csv:' + str(time.time() - ptime) + ' secs')
     return
+
 
 def get_csvs(path, fbs, wells):
     """Function to find the correct csv files and get their base names."""
@@ -253,7 +266,8 @@ def get_csvs(path, fbs, wells):
         well_name = csv_file.get_name('U\d\d--V\d\d')
         fbs.append(fbase)
         wells.append(well_name)
-    return {'wells':wells, 'bases':fbs}
+    return {'wells': wells, 'bases': fbs}
+
 
 def parse_reply(reply, root):
     """Function to parse the reply from the server to find the
@@ -263,6 +277,7 @@ def parse_reply(reply, root):
     for path in paths:
         root = os.path.join(root, path)
     return root
+
 
 def set_gain(com, channels, job_list):
     for i, c in enumerate(channels):
@@ -276,12 +291,13 @@ def set_gain(com, channels, job_list):
         com = com + gain_com(job, detector, gain) + '\n'
     return com
 
+
 def gen_cam_com(com, pattern, well, fieldx, fieldy, enable, dx, dy):
     com = (com +
-           #enable_com(well,
-            #          'X0{}--Y0{}'.format(fieldx, fieldy),
-            #          enable
-            #          ) +
+           # enable_com(well,
+           #          'X0{}--Y0{}'.format(fieldx, fieldy),
+           #          enable
+           #          ) +
            #'\n' +
            # dx dy switched, scan rot -90 degrees
            cam_com(pattern,
@@ -292,6 +308,7 @@ def gen_cam_com(com, pattern, well, fieldx, fieldy, enable, dx, dy):
                    ) +
            '\n')
     return com
+
 
 def gen_com(gain_dict,
             template,
@@ -356,11 +373,12 @@ def gen_com(gain_dict,
         end_com_list.append(end_com)
     return {'com': com_list, 'end_com': end_com_list}
 
+
 def run_r(filebases,
           fin_wells,
           r_script,
           imaging_dir,
-          initialgains_file,
+          gain_file,
           gain_dict
           ):
     # Get a unique set of filebases from the csv paths.
@@ -375,7 +393,7 @@ def run_r(filebases,
                                                 r_script,
                                                 imaging_dir,
                                                 fbase,
-                                                initialgains_file
+                                                gain_file
                                                 ])
             gain_dict = process_output(well, r_output, gain_dict)
         except OSError as e:
@@ -387,6 +405,7 @@ def run_r(filebases,
         print(r_output)
     return gain_dict
 
+
 def get_gain(line,
              imaging_dir,
              last_field,
@@ -394,7 +413,7 @@ def get_gain(line,
              sock,
              stop_com,
              r_script,
-             initialgains_file,
+             gain_file,
              gain_dict
              ):
     # empty lists for keeping csv file base path names
@@ -423,7 +442,7 @@ def get_gain(line,
                      'E02',
                      img_save=False
                      )
-            print(str(time.time()-ptime) + ' secs')
+            print(str(time.time() - ptime) + ' secs')
             # get all CSVs and wells
             csv_result = get_csvs(well_path,
                                   filebases,
@@ -438,10 +457,11 @@ def get_gain(line,
                           fin_wells,
                           r_script,
                           imaging_dir,
-                          initialgains_file,
+                          gain_file,
                           gain_dict
                           )
     return gain_dict
+
 
 def parse_gain(gain_dict, end_63x, template=None):
     green_sorted = defaultdict(list)
@@ -467,7 +487,8 @@ def parse_gain(gain_dict, end_63x, template=None):
                 # blue, yellow and red channels.
                 mlist.append(int(v[i]))
                 medians[c] = int(np.median(mlist))
-    return {'green':green_sorted, 'medians':medians}
+    return {'green': green_sorted, 'medians': medians}
+
 
 def send_com(com_list,
              end_com_list,
@@ -480,7 +501,7 @@ def send_com(com_list,
              last_field,
              end_63x,
              r_script,
-             initialgains_file,
+             gain_file,
              saved_gains,
              template,
              job_list,
@@ -523,14 +544,14 @@ def send_com(com_list,
                                          sock,
                                          stop_com,
                                          r_script,
-                                         initialgains_file,
+                                         gain_file,
                                          gain_dict
                                          )
-                    #print(gain_dict) #testing
+                    # print(gain_dict) #testing
                     if not saved_gains:
                         saved_gains = gain_dict
                     if saved_gains:
-                        #print(saved_gains) #testing
+                        # print(saved_gains) #testing
                         saved_gains.update(gain_dict)
                         header = ['well', 'green', 'blue', 'yellow', 'red']
                         csv_name = 'output_gains.csv'
@@ -581,16 +602,16 @@ def send_com(com_list,
                                 error = True
                                 count += 1
                                 time.sleep(1)
-                                print('No images yet... but maybe later?' , e)
+                                print('No images yet... but maybe later?', e)
                 if all(test in line for test in end_com):
                     stage5 = False
         # Stop scan
-        #print(stop_cam_com)
-        #sock.send(stop_cam_com)
-        #time.sleep(5)
+        # print(stop_cam_com)
+        # sock.send(stop_cam_com)
+        # time.sleep(5)
         print(stop_com)
         sock.send(stop_com)
-        time.sleep(6) # Wait for it to come to complete stop.
+        time.sleep(6)  # Wait for it to come to complete stop.
         if gain_dict and stage1:
             send_com(late_com_list,
                      late_end_com_list,
@@ -603,7 +624,7 @@ def send_com(com_list,
                      last_field,
                      end_63x,
                      r_script,
-                     initialgains_file,
+                     gain_file,
                      saved_gains,
                      template,
                      job_list,
@@ -615,6 +636,7 @@ def send_com(com_list,
                      stage4=stage4
                      )
 
+
 def main(argv):
     """Main function"""
 
@@ -622,9 +644,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, 'hi:', ['help',
                                                  'input=',
                                                  'wdir=',
-                                                 'std=',
                                                  'gainfile=',
-                                                 'secondgain=',
                                                  'finwell=',
                                                  'finfield=',
                                                  'coords=',
@@ -648,9 +668,7 @@ def main(argv):
 
     imaging_dir = ''
     working_dir = os.path.dirname(os.path.abspath(__file__))
-    std_well = 'U00--V00'
-    initialgains_file = os.path.normpath(os.path.join(working_dir,
-                                                            '10x_gain.csv'))
+    gain_file = os.path.normpath(os.path.join(working_dir, '10x_gain.csv'))
     last_well = 'U11--V07'
     last_field = 'X01--Y01'
     template_file = None
@@ -670,16 +688,14 @@ def main(argv):
             imaging_dir = os.path.normpath(arg)
         elif opt in ('--wdir'):
             working_dir = os.path.normpath(arg)
-        elif opt in ('--std'):
-            std_well = arg # 'U00--V00'
         elif opt in ('--gainfile'):
-            initialgains_file = os.path.normpath(arg)
+            gain_file = os.path.normpath(arg)
         elif opt in ('--finwell'):
-            last_well = arg # 'U00--V00'
+            last_well = arg  # 'U00--V00'
         elif opt in ('--finfield'):
-            last_field = arg # 'X00--Y00'
+            last_field = arg  # 'X00--Y00'
         elif opt in ('--coords'):
-            coord_file = os.path.normpath(arg) #
+            coord_file = os.path.normpath(arg)
         elif opt in ('--host'):
             host = arg
         elif opt in ('--inputgain'):
@@ -739,7 +755,6 @@ def main(argv):
 
     # Booleans etc to control flow.
     stage1 = True
-    stage2 = True
     stage3 = True
     stage4 = False
     stage5 = False
@@ -818,11 +833,6 @@ def main(argv):
     # Connect to server
     sock.connect(host, port)
 
-    # lists for keeping csv file base path names and
-    # corresponding well names
-    filebases = []
-    fin_wells = []
-
     # dicts of lists to store wells with gain values for the four channels.
     gain_dict = defaultdict(list)
     saved_gains = defaultdict(list)
@@ -855,7 +865,7 @@ def main(argv):
                  last_field,
                  end_63x,
                  r_script,
-                 initialgains_file,
+                 gain_file,
                  saved_gains,
                  template,
                  job_list,
@@ -869,5 +879,5 @@ def main(argv):
 
     print('\nExperiment finished!')
 
-if __name__ =='__main__':
+if __name__ == '__main__':
     main(sys.argv[1:])
