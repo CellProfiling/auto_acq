@@ -56,7 +56,7 @@ def camstart_com(_afjob=None, _afr=None, _afs=None):
         afs = ' /afs:' + _afs
 
     _com = ('/cli:1 /app:matrix /cmd:startcamscan /runtime:36000'
-            ' /repeattime:36000' + afj + afr + afs)
+            ' /repeattime:36000' + afj + afr + afs + '\n')
     return _com
 
 
@@ -64,7 +64,7 @@ def gain_com(_job, _pmt, _gain):
     """Returns a cam command for changing the pmt gain in a job."""
 
     _com = ('/cli:1 /app:matrix /cmd:adjust /tar:pmt /num:' + _pmt +
-            ' /exp:' + _job + ' /prop:gain /value:' + _gain
+            ' /exp:' + _job + ' /prop:gain /value:' + _gain + '\n'
             )
     return _com
 
@@ -90,7 +90,7 @@ def enable_com(_well, _field, enable):
     fieldy = get_wfy(_field)
     _com = ('/cli:1 /app:matrix /cmd:enable /slide:0 /wellx:' + wellx +
             ' /welly:' + welly + ' /fieldx:' + fieldx + ' /fieldy:' + fieldy +
-            ' /value:' + enable)
+            ' /value:' + enable + '\n')
     return _com
 
 
@@ -104,7 +104,7 @@ def cam_com(_job, _well, _field, _dx, _dy):
     _com = ('/cli:1 /app:matrix /cmd:add /tar:camlist /exp:' + _job +
             ' /ext:none /slide:0 /wellx:' + _wellx + ' /welly:' + _welly +
             ' /fieldx:' + _fieldx + ' /fieldy:' + _fieldy + ' /dxpos:' + _dx +
-            ' /dypos:' + _dy
+            ' /dypos:' + _dy + '\n'
             )
     return _com
 
