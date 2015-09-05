@@ -300,9 +300,29 @@ def gen_com(gain_dict,
             end_63x,
             coords=None
             ):
-    parsed = parse_gain(gain_dict, end_63x, template=template)
-    green_sorted = parsed['green']
-    medians = parsed['medians']
+    green_sorted = defaultdict(list)
+    medians = defaultdict(int)
+    for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
+        mlist = []
+        for k, v in gain_dict.iteritems():
+            # Sort gain data into a list dict with well as key and where the
+            # value is a list with a gain value for each channel.
+            if c == 'green':
+                # Round gain values to multiples of 10 in green channel
+                if end_63x:
+                    green_val = int(min(round(int(v[i]), -1), 800))
+                else:
+                    green_val = int(round(int(v[i]), -1))
+                if template:
+                    for well in template[k]:
+                        green_sorted[green_val].append(well)
+                else:
+                    green_sorted[green_val].append(k)
+            else:
+                # Find the median value of all gains in
+                # blue, yellow and red channels.
+                mlist.append(int(v[i]))
+                medians[c] = int(np.median(mlist))
     dx = 0
     dy = 0
     # Lists for storing command strings.
@@ -437,33 +457,6 @@ def get_gain(line,
                           gain_dict
                           )
     return gain_dict
-
-
-def parse_gain(gain_dict, end_63x, template=None):
-    green_sorted = defaultdict(list)
-    medians = defaultdict(int)
-    for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
-        mlist = []
-        for k, v in gain_dict.iteritems():
-            # Sort gain data into a list dict with well as key and where the
-            # value is a list with a gain value for each channel.
-            if c == 'green':
-                # Round gain values to multiples of 10 in green channel
-                if end_63x:
-                    green_val = int(min(round(int(v[i]), -1), 800))
-                else:
-                    green_val = int(round(int(v[i]), -1))
-                if template:
-                    for well in template[k]:
-                        green_sorted[green_val].append(well)
-                else:
-                    green_sorted[green_val].append(k)
-            else:
-                # Find the median value of all gains in
-                # blue, yellow and red channels.
-                mlist.append(int(v[i]))
-                medians[c] = int(np.median(mlist))
-    return {'green': green_sorted, 'medians': medians}
 
 
 def send_com(com_list,
