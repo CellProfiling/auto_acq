@@ -305,8 +305,8 @@ def gen_com(gain_dict,
     for i, c in enumerate(['green', 'blue', 'yellow', 'red']):
         mlist = []
         for k, v in gain_dict.iteritems():
-            # Sort gain data into a list dict with well as key and where the
-            # value is a list with a gain value for each channel.
+            # Sort gain data into a list dict with green gain as key and where
+            # the value is a list of well ids.
             if c == 'green':
                 # Round gain values to multiples of 10 in green channel
                 if end_63x:
