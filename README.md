@@ -12,7 +12,6 @@ computer program that connects to the CAM server.
 Prerequisites
 -------------
 
-- git
 - Python 2.7
 - Numpy
 - Scipy
@@ -28,11 +27,11 @@ Installation
     cd ~/path/to/location/
     ```
 
-2. Download and extract the lastest release.
+2. Download and extract the latest release.
 
     ```bash
-    wget https://github.com/MartinHjelmare/auto_acq/archive/v0.1.0-alpha.tar.gz
-    tar -zxvf v0.1.0-alpha.tar.gz
+    wget https://github.com/CellProfiling/auto_acq/archive/v0.1.0-alpha.tar.gz
+    tar -zxvf auto_acq-0.1.0-alpha.tar.gz
     ```
 
 3. Test the program by running it with the -h option to see the usage info.
