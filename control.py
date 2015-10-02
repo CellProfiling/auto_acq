@@ -1,3 +1,4 @@
+import cProfile
 import sys
 import os
 import getopt
@@ -870,4 +871,4 @@ def main(argv):
     print('\nExperiment finished!')
 
 if __name__ =='__main__':
-    main(sys.argv[1:])
+    cProfile.run('main(sys.argv[1:])')
