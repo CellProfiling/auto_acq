@@ -1,8 +1,10 @@
+========
+Archive message: This repo is depricated. Please use the cam_acq repo. (https://github.com/CellProfiling/cam_acq)
+========
+
 auto_acq
 ========
 
-[ ![License] [license-image] ] [license]
-[ ![GitHub Issues] [issues-image] ] [issues]
 
 This project is intended to be used together with the CAM interface of
 Leica Microsystem's software LAS AF Matrix screener. The aim is to automate
