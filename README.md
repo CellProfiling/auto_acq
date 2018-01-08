@@ -1,4 +1,3 @@
-========
 Archive message: This repo is depricated. Please use the cam_acq repo. (https://github.com/CellProfiling/cam_acq)
 ========
 
